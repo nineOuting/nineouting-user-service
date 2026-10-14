@@ -108,7 +108,7 @@ public class UserProfileService {
             throw new BusinessException(CommonErrorCode.INVALID_INPUT, "한 번에 " + MAX_LOOKUP_IDS + "명까지 조회할 수 있습니다");
         }
         return userRepository.findAllById(ids).stream()
-                .map(user -> new UserSummaryResponse(user.getId(), user.getName(), imageUrl(user)))
+                .map(user -> new UserSummaryResponse(user.getId(), user.getName(), user.getEmail(), imageUrl(user)))
                 .toList();
     }
 
