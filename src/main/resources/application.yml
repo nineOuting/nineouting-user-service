@@ -16,3 +16,18 @@ spring:
       ddl-auto: validate   # 스키마는 Flyway만 바꾼다
   flyway:
     locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+nineouting:
+  user:
+    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+    refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
+    jwt:
+      private-key: ${JWT_PRIVATE_KEY:}      # RS256 개인키 (PKCS#8 PEM). 운영에서는 반드시 설정
+      key-id: ${JWT_KEY_ID:user-service-1}
+      access-token-ttl: 30m
+      refresh-token-ttl: 14d
+      allow-ephemeral-key: false
