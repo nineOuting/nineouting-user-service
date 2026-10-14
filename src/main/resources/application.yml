@@ -16,6 +16,8 @@ spring:
       ddl-auto: validate   # 스키마는 Flyway만 바꾼다
   flyway:
     locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
   data:
     redis:
       host: ${REDIS_HOST:localhost}

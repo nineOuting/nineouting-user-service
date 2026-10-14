@@ -45,6 +45,8 @@ public class PasswordResetService {
         this.frontendBaseUrl = properties.frontendBaseUrl();
     }
 
+    /** 메일 발송 이벤트를 outbox에 기록하므로 트랜잭션 안에서 실행한다. */
+    @Transactional
     public void request(String email) {
         userRepository.findByEmail(email).ifPresent(user -> {
             String token = newToken();

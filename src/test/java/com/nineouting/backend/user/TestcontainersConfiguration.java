@@ -1,5 +1,6 @@
 package com.nineouting.backend.user;
 
+import com.nineouting.backend.user.service.EventMailNotifier;
 import com.nineouting.backend.user.service.MailNotifier;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -11,12 +12,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.localstack.LocalStackContainer;
 import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * 테스트용 MySQL·Redis·S3(LocalStack)를 Docker로 띄우고 접속 정보를 자동으로 연결한다.
+ * 테스트용 MySQL·Redis·Kafka·S3(LocalStack)를 Docker로 띄우고 접속 정보를 자동으로 연결한다.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
@@ -33,6 +35,12 @@ public class TestcontainersConfiguration {
     @ServiceConnection(name = "redis")
     GenericContainer<?> redisContainer() {
         return new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);
+    }
+
+    @Bean
+    @ServiceConnection
+    KafkaContainer kafkaContainer() {
+        return new KafkaContainer(DockerImageName.parse("apache/kafka:3.9.1"));
     }
 
     @Bean
@@ -62,23 +70,30 @@ public class TestcontainersConfiguration {
 
     @Bean
     @Primary
-    CapturingMailNotifier capturingMailNotifier() {
-        return new CapturingMailNotifier();
+    CapturingMailNotifier capturingMailNotifier(EventMailNotifier eventMailNotifier) {
+        return new CapturingMailNotifier(eventMailNotifier);
     }
 
-    /** 보낸 인증 코드·재설정 링크를 테스트에서 꺼내 쓴다. */
+    /** 실제 이벤트 발행은 그대로 하면서, 보낸 인증 코드·재설정 링크를 테스트에서 꺼내 쓴다. */
     public static class CapturingMailNotifier implements MailNotifier {
 
+        private final MailNotifier delegate;
         private final Map<String, String> codes = new ConcurrentHashMap<>();
         private final Map<String, String> resetLinks = new ConcurrentHashMap<>();
 
+        CapturingMailNotifier(MailNotifier delegate) {
+            this.delegate = delegate;
+        }
+
         @Override
         public void sendVerificationCode(String email, String code) {
+            delegate.sendVerificationCode(email, code);
             codes.put(email, code);
         }
 
         @Override
         public void sendPasswordResetLink(String email, String resetLink) {
+            delegate.sendPasswordResetLink(email, resetLink);
             resetLinks.put(email, resetLink);
         }
 

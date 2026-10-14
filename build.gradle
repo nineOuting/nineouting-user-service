@@ -8,7 +8,7 @@ group = 'com.nineouting.backend'
 version = '0.0.1'
 
 ext {
-    commonVersion = '0.1.0'
+    commonVersion = '0.2.0'
     jjwtVersion = '0.12.6'
     awsSdkVersion = '2.55.0'
 }
@@ -38,12 +38,15 @@ dependencies {
     implementation "com.nineouting.backend:observability:${commonVersion}"
     // 토큰 검증 부품(필터·401/403 응답·@CurrentUser)만 쓴다. 자동 설정은 jwks-uri가 없어 켜지지 않는다.
     implementation "com.nineouting.backend:security-common:${commonVersion}"
+    // 메일 발송 요청 이벤트를 DB 트랜잭션과 함께 기록하고 Kafka로 보낸다
+    implementation "com.nineouting.backend:outbox:${commonVersion}"
 
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-kafka'
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
@@ -63,6 +66,7 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-mysql'
     testImplementation 'org.testcontainers:testcontainers-localstack'
+    testImplementation 'org.testcontainers:testcontainers-kafka'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
