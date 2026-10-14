@@ -31,3 +31,11 @@ nineouting:
       access-token-ttl: 30m
       refresh-token-ttl: 14d
       allow-ephemeral-key: false
+    storage:                               # 프로필 사진 (S3)
+      bucket: ${STORAGE_BUCKET:nineouting-profile-images}
+      region: ${AWS_REGION:ap-northeast-2}
+      endpoint: ${STORAGE_ENDPOINT:}        # 비우면 AWS S3
+      access-key: ${STORAGE_ACCESS_KEY:}    # 비우면 AWS 기본 자격 증명(IAM 역할 등)
+      secret-key: ${STORAGE_SECRET_KEY:}
+      upload-url-ttl: 5m
+      download-url-ttl: 1h

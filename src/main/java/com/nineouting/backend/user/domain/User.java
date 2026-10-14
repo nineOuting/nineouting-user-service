@@ -48,4 +48,18 @@ public class User extends BaseTimeEntity {
     public void changePassword(String passwordHash) {
         this.passwordHash = passwordHash;
     }
+
+    /** null인 항목은 바꾸지 않는다. 소속을 빈 문자열로 보내면 지운다. */
+    public void updateProfile(String name, String affiliation) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (affiliation != null) {
+            this.affiliation = affiliation.isBlank() ? null : affiliation;
+        }
+    }
+
+    public void changeProfileImage(String profileImageKey) {
+        this.profileImageKey = profileImageKey;
+    }
 }
