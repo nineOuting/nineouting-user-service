@@ -4,3 +4,8 @@ nineouting:
     refresh-cookie-secure: false
     jwt:
       allow-ephemeral-key: true
+    storage:                       # docker-compose의 LocalStack (버킷은 init-s3.sh가 만든다)
+      bucket: nineouting-local
+      endpoint: http://localhost:4566
+      access-key: test
+      secret-key: test

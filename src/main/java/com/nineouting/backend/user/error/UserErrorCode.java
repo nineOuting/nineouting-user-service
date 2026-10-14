@@ -19,7 +19,10 @@ public enum UserErrorCode implements ErrorCode {
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다"),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "다시 로그인해 주세요"),
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다"),
-    INVALID_RESET_TOKEN(HttpStatus.BAD_REQUEST, "재설정 링크가 만료되었거나 올바르지 않습니다");
+    INVALID_RESET_TOKEN(HttpStatus.BAD_REQUEST, "재설정 링크가 만료되었거나 올바르지 않습니다"),
+    UNSUPPORTED_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "JPG, PNG, WEBP 사진만 올릴 수 있습니다"),
+    PROFILE_IMAGE_NOT_UPLOADED(HttpStatus.BAD_REQUEST, "프로필 사진 업로드가 완료되지 않았습니다"),
+    PROFILE_IMAGE_TOO_LARGE(HttpStatus.BAD_REQUEST, "프로필 사진은 5MB 이하만 올릴 수 있습니다");
 
     private final HttpStatus status;
     private final String message;
