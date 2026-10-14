@@ -145,7 +145,8 @@ class ProfileFlowTest {
         mockMvc.perform(get("/internal/users").param("ids", a.userId + "," + b.userId + ",999999999"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(2))
-                .andExpect(jsonPath("$.data[0].name").value("테스터"));
+                .andExpect(jsonPath("$.data[0].name").value("테스터"))
+                .andExpect(jsonPath("$.data[*].email").value(org.hamcrest.Matchers.containsInAnyOrder(a.email, b.email)));
 
         String tooMany = IntStream.rangeClosed(1, 101).mapToObj(String::valueOf).collect(Collectors.joining(","));
         mockMvc.perform(get("/internal/users").param("ids", tooMany))
