@@ -2,6 +2,7 @@
 nineouting:
   user:
     refresh-cookie-secure: false
+    log-mail-for-local-dev: true   # notification-service 없이 인증 코드·재설정 링크를 로그로 확인
     jwt:
       allow-ephemeral-key: true
     storage:                       # docker-compose의 LocalStack (버킷은 init-s3.sh가 만든다)

@@ -9,6 +9,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 회원가입 전 이메일 인증 (REQ-011). 6자리 코드, 10분 유효, 5번 틀리면 무효.
@@ -33,6 +34,8 @@ public class EmailVerificationService {
     private final MailNotifier mailNotifier;
     private final SecureRandom random = new SecureRandom();
 
+    /** 메일 발송 이벤트를 outbox에 기록하므로 트랜잭션 안에서 실행한다. */
+    @Transactional
     public void sendCode(String email) {
         if (userRepository.existsByEmail(email)) {
             throw new BusinessException(UserErrorCode.EMAIL_ALREADY_EXISTS);

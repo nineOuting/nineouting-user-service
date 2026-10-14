@@ -32,10 +32,13 @@
    ```
 4. 확인: `http://localhost:8081/actuator/health`
 
+`local` 프로필에서는 인증 코드·비밀번호 재설정 링크가 로그에 찍힌다 (`[로컬 메일] ...`). notification-service 없이 가입을 테스트할 수 있다.
+보낸 이벤트는 Kafka 토픽 `user.email-verification-requested`, `user.password-reset-requested`에서 볼 수 있다.
+
 ## 테스트
 
 ```bash
-./gradlew test   # Testcontainers로 MySQL을 띄우므로 Docker가 켜져 있어야 한다
+./gradlew test   # Testcontainers로 MySQL·Redis·Kafka·S3(LocalStack)를 띄우므로 Docker가 켜져 있어야 한다
 ```
 
 ## 환경 변수
@@ -45,7 +48,16 @@
 | `SERVER_PORT` | `8081` | |
 | `DB_URL` | `jdbc:mysql://localhost:3307/user_db` | |
 | `DB_USERNAME` / `DB_PASSWORD` | `user_service` | |
-| `SPRING_PROFILES_ACTIVE` | — | `local`: 사람이 읽는 로그, 추적 전송 끔 |
+| `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | 메일 발송 요청 이벤트 |
+| `JWT_PRIVATE_KEY` | — | RS256 개인키(PKCS#8 PEM). **운영 필수** (`local`은 없으면 임시 키) |
+| `JWT_KEY_ID` | `user-service-1` | 키를 교체할 때 바꾼다 |
+| `FRONTEND_BASE_URL` | `http://localhost:5173` | 비밀번호 재설정 링크 주소 |
+| `REFRESH_COOKIE_SECURE` | `true` | `local`은 `false` |
+| `STORAGE_BUCKET` | `nineouting-profile-images` | 프로필 사진 버킷 |
+| `AWS_REGION` | `ap-northeast-2` | |
+| `STORAGE_ENDPOINT` | — | 비우면 AWS S3 (`local`은 LocalStack) |
+| `SPRING_PROFILES_ACTIVE` | — | `local`: 사람이 읽는 로그, 추적 전송 끔, 메일 내용 로그 출력 |
 
 ## Docker 이미지
 
