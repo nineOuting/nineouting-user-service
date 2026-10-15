@@ -8,7 +8,6 @@ import com.jayway.jsonpath.JsonPath;
 import com.nineouting.backend.common.event.user.EmailVerificationRequested;
 import com.nineouting.backend.common.event.user.PasswordResetRequested;
 import com.nineouting.backend.common.outbox.OutboxEventRepository;
-import com.nineouting.backend.common.outbox.OutboxStatus;
 import com.nineouting.backend.user.TestcontainersConfiguration;
 import com.nineouting.backend.user.TestcontainersConfiguration.CapturingMailNotifier;
 import java.time.Duration;
@@ -65,10 +64,7 @@ class MailEventPublishingTest {
         assertThat((String) JsonPath.read(message, "$.eventId")).isNotBlank();
         assertThat((String) JsonPath.read(message, "$.payload.email")).isEqualTo(email);
         assertThat((String) JsonPath.read(message, "$.payload.code")).isEqualTo(mail.codeFor(email));
-        assertThat(outboxEventRepository.findAll())
-                .filteredOn(event -> event.getPayload().contains(email))
-                .singleElement()
-                .satisfies(event -> assertThat(event.getStatus()).isEqualTo(OutboxStatus.SENT));
+        awaitOutboxDeleted(email);
     }
 
     @Test
@@ -88,6 +84,18 @@ class MailEventPublishingTest {
 
     private void postJson(String url, String body) throws Exception {
         mockMvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk());
+    }
+
+    /** outbox는 Kafka로 보낸 이벤트를 바로 지운다 (공통 모듈 0.3.0부터). */
+    private void awaitOutboxDeleted(String email) throws InterruptedException {
+        Instant deadline = Instant.now().plus(WAIT);
+        while (Instant.now().isBefore(deadline)) {
+            if (outboxEventRepository.findAll().stream().noneMatch(event -> event.getPayload().contains(email))) {
+                return;
+            }
+            Thread.sleep(200);
+        }
+        throw new AssertionError(email + " 이벤트가 outbox에서 지워지지 않았습니다");
     }
 
     /** 토픽에서 해당 이메일(메시지 키)의 메시지가 올 때까지 기다린다. */
