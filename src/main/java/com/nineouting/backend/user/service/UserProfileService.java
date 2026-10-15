@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 내 정보 조회·수정 (REQ-102~105)과 다른 서비스용 사용자 조회.
+ * 내 정보 조회·수정 (REQ-102~106)과 다른 서비스용 사용자 조회.
  */
 @Service
 @RequiredArgsConstructor
