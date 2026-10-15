@@ -8,7 +8,7 @@ group = 'com.nineouting.backend'
 version = '0.0.1'
 
 ext {
-    commonVersion = '0.4.0'
+    commonVersion = '0.5.0'
     jjwtVersion = '0.12.6'
     awsSdkVersion = '2.55.0'
 }
@@ -35,6 +35,7 @@ repositories {
 
 dependencies {
     implementation "com.nineouting.backend:web-common:${commonVersion}"
+    implementation "com.nineouting.backend:api-docs:${commonVersion}"
     implementation "com.nineouting.backend:observability:${commonVersion}"
     // 토큰 검증 부품(필터·401/403 응답·@CurrentUser)만 쓴다. 자동 설정은 jwks-uri가 없어 켜지지 않는다.
     implementation "com.nineouting.backend:security-common:${commonVersion}"
