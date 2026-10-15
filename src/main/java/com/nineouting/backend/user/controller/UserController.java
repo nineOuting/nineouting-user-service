@@ -34,7 +34,7 @@ public class UserController {
         return ApiResponse.ok(userProfileService.getMyProfile(user.userId()));
     }
 
-    /** REQ-102 이름, REQ-105 소속 */
+    /** REQ-102 이름, REQ-106 소속 */
     @PatchMapping
     public ApiResponse<MyProfileResponse> updateProfile(@CurrentUser AuthenticatedUser user,
                                                         @Valid @RequestBody UpdateProfileRequest request) {
