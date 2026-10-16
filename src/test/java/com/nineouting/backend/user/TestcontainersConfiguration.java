@@ -14,11 +14,11 @@ import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.localstack.LocalStackContainer;
-import org.testcontainers.mysql.MySQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * 테스트용 MySQL·Redis·Kafka·S3(LocalStack)를 Docker로 띄우고 접속 정보를 자동으로 연결한다.
+ * 테스트용 PostgreSQL·Redis·Kafka·S3(LocalStack)를 Docker로 띄우고 접속 정보를 자동으로 연결한다.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
@@ -27,8 +27,8 @@ public class TestcontainersConfiguration {
 
     @Bean
     @ServiceConnection
-    MySQLContainer mysqlContainer() {
-        return new MySQLContainer("mysql:8.4");
+    PostgreSQLContainer postgresContainer() {
+        return new PostgreSQLContainer("postgres:17.6-alpine");
     }
 
     @Bean

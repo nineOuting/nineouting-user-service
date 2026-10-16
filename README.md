@@ -22,7 +22,7 @@
    ```
    | 서비스 | 주소 | 비고 |
    |--------|------|------|
-   | MySQL | `localhost:3307` | DB `user_db` / `user_service` / `user_service` |
+   | PostgreSQL | `localhost:5433` | DB `user_db` / `user_service` / `user_service` |
    | Redis | `localhost:6379` | |
    | Kafka | `localhost:9092` | |
    | S3 (LocalStack) | `http://localhost:4566` | 버킷 `nineouting-local` |
@@ -38,7 +38,7 @@
 ## 테스트
 
 ```bash
-./gradlew test   # Testcontainers로 MySQL·Redis·Kafka·S3(LocalStack)를 띄우므로 Docker가 켜져 있어야 한다
+./gradlew test   # Testcontainers로 PostgreSQL·Redis·Kafka·S3(LocalStack)를 띄우므로 Docker가 켜져 있어야 한다
 ```
 
 ## 환경 변수
@@ -46,7 +46,7 @@
 | 이름 | 기본값 | 설명 |
 |------|--------|------|
 | `SERVER_PORT` | `8081` | |
-| `DB_URL` | `jdbc:mysql://localhost:3307/user_db` | |
+| `DB_URL` | `jdbc:postgresql://localhost:5433/user_db` | |
 | `DB_USERNAME` / `DB_PASSWORD` | `user_service` | |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | 메일 발송 요청 이벤트 |
