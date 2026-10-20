@@ -25,7 +25,6 @@ spring:
 
 nineouting:
   user:
-    frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
     refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
     jwt:
       private-key: ${JWT_PRIVATE_KEY:}      # RS256 개인키 (PKCS#8 PEM). 운영에서는 반드시 설정

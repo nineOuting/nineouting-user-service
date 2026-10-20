@@ -2,28 +2,38 @@ package com.nineouting.backend.user.service;
 
 import com.nineouting.backend.common.web.error.BusinessException;
 import com.nineouting.backend.common.web.error.CommonErrorCode;
-import com.nineouting.backend.user.config.UserServiceProperties;
 import com.nineouting.backend.user.domain.User;
 import com.nineouting.backend.user.error.UserErrorCode;
 import com.nineouting.backend.user.repository.UserRepository;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 비밀번호 찾기 (REQ-009). 가입된 이메일이면 30분짜리 재설정 링크를 보낸다.
- * 가입 여부를 알 수 없도록 요청 결과는 항상 같다.
+ * 비밀번호 찾기 (REQ-009). 가입된 이메일이면 6자리 인증 번호(5분 유효, 5번 틀리면 무효)를 보낸다.
+ * 인증 번호가 맞으면 새 비밀번호를 설정할 수 있는 재설정 토큰(10분 유효, 한 번만 사용)을 준다.
+ * 가입 여부를 알 수 없도록 인증 번호 요청 결과는 항상 같다.
  */
 @Service
+@RequiredArgsConstructor
 public class PasswordResetService {
 
-    static final Duration TOKEN_TTL = Duration.ofMinutes(30);
+    static final Duration CODE_TTL = Duration.ofMinutes(5);
+    static final Duration TOKEN_TTL = Duration.ofMinutes(10);
+    static final int MAX_ATTEMPTS = 5;
 
+    private static final String CODE_KEY = "password-reset-code:";
     private static final String TOKEN_KEY = "password-reset:";
+    private static final String FIELD_CODE = "code";
+    private static final String FIELD_ATTEMPTS = "attempts";
+    private static final String FIELD_USER_ID = "userId";
+    private static final int CODE_BOUND = 1_000_000;
     private static final int TOKEN_BYTES = 32;
 
     private final StringRedisTemplate redis;
@@ -31,28 +41,41 @@ public class PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenStore refreshTokenStore;
     private final MailNotifier mailNotifier;
-    private final String frontendBaseUrl;
     private final SecureRandom random = new SecureRandom();
 
-    public PasswordResetService(StringRedisTemplate redis, UserRepository userRepository,
-                                PasswordEncoder passwordEncoder, RefreshTokenStore refreshTokenStore,
-                                MailNotifier mailNotifier, UserServiceProperties properties) {
-        this.redis = redis;
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.refreshTokenStore = refreshTokenStore;
-        this.mailNotifier = mailNotifier;
-        this.frontendBaseUrl = properties.frontendBaseUrl();
-    }
-
-    /** 메일 발송 이벤트를 outbox에 기록하므로 트랜잭션 안에서 실행한다. */
+    /** 메일 발송 이벤트를 outbox에 기록하므로 트랜잭션 안에서 실행한다. 다시 요청하면 이전 인증 번호는 무효가 된다. */
     @Transactional
     public void request(String email) {
         userRepository.findByEmail(email).ifPresent(user -> {
-            String token = newToken();
-            redis.opsForValue().set(TOKEN_KEY + token, user.getId().toString(), TOKEN_TTL);
-            mailNotifier.sendPasswordResetLink(email, frontendBaseUrl + "/password-reset?token=" + token);
+            String code = String.format("%06d", random.nextInt(CODE_BOUND));
+            String key = CODE_KEY + email;
+            redis.delete(key);
+            redis.opsForHash().putAll(key, Map.of(
+                    FIELD_CODE, code, FIELD_ATTEMPTS, "0", FIELD_USER_ID, user.getId().toString()));
+            redis.expire(key, CODE_TTL);
+            mailNotifier.sendPasswordResetCode(email, code);
         });
+    }
+
+    /** 인증 번호를 확인하고 재설정 토큰을 돌려준다. 가입되지 않은 이메일은 만료와 같은 응답을 준다. */
+    public String verify(String email, String code) {
+        String key = CODE_KEY + email;
+        Map<Object, Object> saved = redis.opsForHash().entries(key);
+        if (saved.isEmpty()) {
+            throw new BusinessException(UserErrorCode.VERIFICATION_EXPIRED);
+        }
+        if (!saved.get(FIELD_CODE).equals(code)) {
+            long attempts = redis.opsForHash().increment(key, FIELD_ATTEMPTS, 1);
+            if (attempts >= MAX_ATTEMPTS) {
+                redis.delete(key);
+                throw new BusinessException(UserErrorCode.VERIFICATION_EXPIRED);
+            }
+            throw new BusinessException(UserErrorCode.VERIFICATION_CODE_MISMATCH);
+        }
+        redis.delete(key);
+        String token = newToken();
+        redis.opsForValue().set(TOKEN_KEY + token, (String) saved.get(FIELD_USER_ID), TOKEN_TTL);
+        return token;
     }
 
     @Transactional

@@ -79,7 +79,7 @@ class MailEventPublishingTest {
         postJson("/api/auth/password-reset", "{\"email\":\"%s\"}".formatted(email));
 
         String message = awaitMessage(PasswordResetRequested.TOPIC, email);
-        assertThat((String) JsonPath.read(message, "$.payload.resetLink")).isEqualTo(mail.resetLinkFor(email));
+        assertThat((String) JsonPath.read(message, "$.payload.code")).isEqualTo(mail.resetCodeFor(email));
     }
 
     private void postJson(String url, String body) throws Exception {

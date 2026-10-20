@@ -74,12 +74,12 @@ public class TestcontainersConfiguration {
         return new CapturingMailNotifier(eventMailNotifier);
     }
 
-    /** 실제 이벤트 발행은 그대로 하면서, 보낸 인증 코드·재설정 링크를 테스트에서 꺼내 쓴다. */
+    /** 실제 이벤트 발행은 그대로 하면서, 보낸 인증 코드를 테스트에서 꺼내 쓴다. */
     public static class CapturingMailNotifier implements MailNotifier {
 
         private final MailNotifier delegate;
         private final Map<String, String> codes = new ConcurrentHashMap<>();
-        private final Map<String, String> resetLinks = new ConcurrentHashMap<>();
+        private final Map<String, String> resetCodes = new ConcurrentHashMap<>();
 
         CapturingMailNotifier(MailNotifier delegate) {
             this.delegate = delegate;
@@ -92,17 +92,17 @@ public class TestcontainersConfiguration {
         }
 
         @Override
-        public void sendPasswordResetLink(String email, String resetLink) {
-            delegate.sendPasswordResetLink(email, resetLink);
-            resetLinks.put(email, resetLink);
+        public void sendPasswordResetCode(String email, String code) {
+            delegate.sendPasswordResetCode(email, code);
+            resetCodes.put(email, code);
         }
 
         public String codeFor(String email) {
             return codes.get(email);
         }
 
-        public String resetLinkFor(String email) {
-            return resetLinks.get(email);
+        public String resetCodeFor(String email) {
+            return resetCodes.get(email);
         }
     }
 }
