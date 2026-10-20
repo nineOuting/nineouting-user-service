@@ -7,6 +7,8 @@ import com.nineouting.backend.user.dto.EmailVerificationRequest;
 import com.nineouting.backend.user.dto.LoginRequest;
 import com.nineouting.backend.user.dto.PasswordResetConfirmRequest;
 import com.nineouting.backend.user.dto.PasswordResetRequest;
+import com.nineouting.backend.user.dto.PasswordResetVerifyRequest;
+import com.nineouting.backend.user.dto.PasswordResetVerifyResponse;
 import com.nineouting.backend.user.dto.SignupRequest;
 import com.nineouting.backend.user.dto.SignupResponse;
 import com.nineouting.backend.user.dto.TokenResponse;
@@ -93,11 +95,19 @@ public class AuthController {
                 .body(ApiResponse.ok());
     }
 
-    /** REQ-009 비밀번호 재설정 링크 발송. 가입 여부와 상관없이 같은 응답을 준다. */
+    /** REQ-009 비밀번호 찾기 인증 번호 발송. 가입 여부와 상관없이 같은 응답을 준다. */
     @PostMapping("/password-reset")
     public ApiResponse<Void> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
         passwordResetService.request(request.email());
         return ApiResponse.ok();
+    }
+
+    /** REQ-009 인증 번호 확인. 맞으면 새 비밀번호 설정에 쓸 재설정 토큰을 준다. */
+    @PostMapping("/password-reset/verify")
+    public ApiResponse<PasswordResetVerifyResponse> verifyPasswordReset(
+            @Valid @RequestBody PasswordResetVerifyRequest request) {
+        return ApiResponse.ok(new PasswordResetVerifyResponse(
+                passwordResetService.verify(request.email(), request.code())));
     }
 
     /** REQ-009 새 비밀번호 설정 */

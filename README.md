@@ -32,7 +32,7 @@
    ```
 4. 확인: `http://localhost:8081/actuator/health`
 
-`local` 프로필에서는 인증 코드·비밀번호 재설정 링크가 로그에 찍힌다 (`[로컬 메일] ...`). notification-service 없이 가입을 테스트할 수 있다.
+`local` 프로필에서는 회원가입·비밀번호 찾기 인증 코드가 로그에 찍힌다 (`[로컬 메일] ...`). notification-service 없이 가입을 테스트할 수 있다.
 보낸 이벤트는 Kafka 토픽 `user.email-verification-requested`, `user.password-reset-requested`에서 볼 수 있다.
 
 ## 테스트
@@ -52,7 +52,6 @@
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | 메일 발송 요청 이벤트 |
 | `JWT_PRIVATE_KEY` | — | RS256 개인키(PKCS#8 PEM). **운영 필수** (`local`은 없으면 임시 키) |
 | `JWT_KEY_ID` | `user-service-1` | 키를 교체할 때 바꾼다 |
-| `FRONTEND_BASE_URL` | `http://localhost:5173` | 비밀번호 재설정 링크 주소 |
 | `REFRESH_COOKIE_SECURE` | `true` | `local`은 `false` |
 | `STORAGE_BUCKET` | `nineouting-profile-images` | 프로필 사진 버킷 |
 | `AWS_REGION` | `ap-northeast-2` | |

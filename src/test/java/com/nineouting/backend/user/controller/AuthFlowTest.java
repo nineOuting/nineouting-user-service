@@ -140,14 +140,14 @@ class AuthFlowTest {
                 .andReturn().getResponse().getCookie(AuthController.REFRESH_COOKIE);
 
         postJson("/api/auth/password-reset", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
-        String token = mail.resetLinkFor(email).substring(mail.resetLinkFor(email).indexOf("token=") + 6);
+        String token = verifyResetCode(email, mail.resetCodeFor(email));
         postJson("/api/auth/password-reset/confirm", "{\"token\":\"%s\",\"newPassword\":\"newPassword9\"}".formatted(token))
                 .andExpect(status().isOk());
 
         postJson("/api/auth/login", "{\"email\":\"%s\",\"password\":\"newPassword9\"}".formatted(email))
                 .andExpect(status().isOk());
         mockMvc.perform(post("/api/auth/refresh").cookie(oldRefresh)).andExpect(status().isUnauthorized());
-        // 재설정 링크는 한 번만 쓸 수 있다
+        // 재설정 토큰은 한 번만 쓸 수 있다
         postJson("/api/auth/password-reset/confirm", "{\"token\":\"%s\",\"newPassword\":\"another123\"}".formatted(token))
                 .andExpect(jsonPath("$.code").value("INVALID_RESET_TOKEN"));
     }
@@ -159,7 +159,32 @@ class AuthFlowTest {
         postJson("/api/auth/password-reset", "{\"email\":\"%s\"}".formatted(email))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
-        assertThat(mail.resetLinkFor(email)).isNull();
+        assertThat(mail.resetCodeFor(email)).isNull();
+        postJson("/api/auth/password-reset/verify", "{\"email\":\"%s\",\"code\":\"123456\"}".formatted(email))
+                .andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
+    }
+
+    @Test
+    void 비밀번호_찾기_인증_번호는_한_번만_쓸_수_있고_5번_틀리면_무효다() throws Exception {
+        String email = newEmail();
+        signup(email);
+        postJson("/api/auth/password-reset", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
+        String code = mail.resetCodeFor(email);
+        verifyResetCode(email, code);
+        postJson("/api/auth/password-reset/verify", "{\"email\":\"%s\",\"code\":\"%s\"}".formatted(email, code))
+                .andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
+
+        postJson("/api/auth/password-reset", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
+        String wrong = "000000".equals(mail.resetCodeFor(email)) ? "111111" : "000000";
+        for (int i = 1; i < 5; i++) {
+            postJson("/api/auth/password-reset/verify", "{\"email\":\"%s\",\"code\":\"%s\"}".formatted(email, wrong))
+                    .andExpect(jsonPath("$.code").value("VERIFICATION_CODE_MISMATCH"));
+        }
+        postJson("/api/auth/password-reset/verify", "{\"email\":\"%s\",\"code\":\"%s\"}".formatted(email, wrong))
+                .andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
+        postJson("/api/auth/password-reset/verify",
+                "{\"email\":\"%s\",\"code\":\"%s\"}".formatted(email, mail.resetCodeFor(email)))
+                .andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
     }
 
     @Test
@@ -185,6 +210,14 @@ class AuthFlowTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         return ((Number) JsonPath.read(result.getResponse().getContentAsString(), "$.data.userId")).longValue();
+    }
+
+    private String verifyResetCode(String email, String code) throws Exception {
+        MvcResult result = postJson("/api/auth/password-reset/verify",
+                "{\"email\":\"%s\",\"code\":\"%s\"}".formatted(email, code))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.data.resetToken");
     }
 
     private ResultActions confirm(String email, String code) throws Exception {

@@ -7,5 +7,5 @@ public interface MailNotifier {
 
     void sendVerificationCode(String email, String code);
 
-    void sendPasswordResetLink(String email, String resetLink);
+    void sendPasswordResetCode(String email, String code);
 }
