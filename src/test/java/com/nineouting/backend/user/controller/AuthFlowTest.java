@@ -97,16 +97,23 @@ class AuthFlowTest {
     }
 
     @Test
-    void 인증_코드를_5번_틀리면_무효가_된다() throws Exception {
+    void 인증_코드를_5번_틀리면_5분_동안_제한된다() throws Exception {
         String email = newEmail();
         postJson("/api/auth/email-verifications", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
         String wrong = "000000".equals(mail.codeFor(email)) ? "111111" : "000000";
 
         for (int i = 1; i < 5; i++) {
-            confirm(email, wrong).andExpect(jsonPath("$.code").value("VERIFICATION_CODE_MISMATCH"));
+            // MSG-005 틀린 횟수를 문구 끝에 붙인다
+            confirm(email, wrong)
+                    .andExpect(jsonPath("$.code").value("VERIFICATION_CODE_MISMATCH"))
+                    .andExpect(jsonPath("$.message").value("인증 번호가 올바르지 않습니다. 다시 확인해 주세요. (%d/5)".formatted(i)));
         }
-        confirm(email, wrong).andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
-        confirm(email, mail.codeFor(email)).andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
+        confirm(email, wrong)
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("VERIFICATION_LOCKED"));
+        confirm(email, mail.codeFor(email)).andExpect(jsonPath("$.code").value("VERIFICATION_LOCKED"));
+        postJson("/api/auth/email-verifications", "{\"email\":\"%s\"}".formatted(email))
+                .andExpect(jsonPath("$.code").value("VERIFICATION_LOCKED"));
     }
 
     @Test
@@ -130,6 +137,57 @@ class AuthFlowTest {
                 .andExpect(status().isUnauthorized()).andReturn().getResponse().getContentAsString();
 
         assertThat(wrongPassword).isEqualTo(unknownEmail).contains("LOGIN_FAILED");
+    }
+
+    @Test
+    void 로그인에_5번_연속_실패하면_제한되고_비밀번호를_재설정하면_풀린다() throws Exception {
+        String email = newEmail();
+        signup(email);
+        String wrong = "{\"email\":\"%s\",\"password\":\"wrong1234\"}".formatted(email);
+        String right = "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD);
+
+        for (int i = 1; i < 5; i++) {
+            postJson("/api/auth/login", wrong).andExpect(jsonPath("$.code").value("LOGIN_FAILED"));
+        }
+        postJson("/api/auth/login", wrong)
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("LOGIN_LOCKED"));
+        postJson("/api/auth/login", right).andExpect(jsonPath("$.code").value("LOGIN_LOCKED"));
+
+        postJson("/api/auth/password-reset", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
+        String token = verifyResetCode(email, mail.resetCodeFor(email));
+        postJson("/api/auth/password-reset/confirm", "{\"token\":\"%s\",\"newPassword\":\"newPassword9\"}".formatted(token))
+                .andExpect(status().isOk());
+        postJson("/api/auth/login", "{\"email\":\"%s\",\"password\":\"newPassword9\"}".formatted(email))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void 로그인에_성공하면_실패_횟수가_처음부터_다시_세어진다() throws Exception {
+        String email = newEmail();
+        signup(email);
+        String wrong = "{\"email\":\"%s\",\"password\":\"wrong1234\"}".formatted(email);
+
+        for (int i = 1; i < 5; i++) {
+            postJson("/api/auth/login", wrong);
+        }
+        postJson("/api/auth/login", "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD))
+                .andExpect(status().isOk());
+        postJson("/api/auth/login", wrong).andExpect(jsonPath("$.code").value("LOGIN_FAILED"));
+    }
+
+    @Test
+    void 이전_비밀번호로는_재설정할_수_없고_토큰은_그대로_쓸_수_있다() throws Exception {
+        String email = newEmail();
+        signup(email);
+        postJson("/api/auth/password-reset", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
+        String token = verifyResetCode(email, mail.resetCodeFor(email));
+
+        postJson("/api/auth/password-reset/confirm", "{\"token\":\"%s\",\"newPassword\":\"%s\"}".formatted(token, PASSWORD))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SAME_AS_OLD_PASSWORD"));
+        postJson("/api/auth/password-reset/confirm", "{\"token\":\"%s\",\"newPassword\":\"newPassword9\"}".formatted(token))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -165,7 +223,7 @@ class AuthFlowTest {
     }
 
     @Test
-    void 비밀번호_찾기_인증_번호는_한_번만_쓸_수_있고_5번_틀리면_무효다() throws Exception {
+    void 비밀번호_찾기_인증_번호는_한_번만_쓸_수_있고_5번_틀리면_5분_동안_제한된다() throws Exception {
         String email = newEmail();
         signup(email);
         postJson("/api/auth/password-reset", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
@@ -181,10 +239,11 @@ class AuthFlowTest {
                     .andExpect(jsonPath("$.code").value("VERIFICATION_CODE_MISMATCH"));
         }
         postJson("/api/auth/password-reset/verify", "{\"email\":\"%s\",\"code\":\"%s\"}".formatted(email, wrong))
-                .andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("VERIFICATION_LOCKED"));
         postJson("/api/auth/password-reset/verify",
                 "{\"email\":\"%s\",\"code\":\"%s\"}".formatted(email, mail.resetCodeFor(email)))
-                .andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
+                .andExpect(jsonPath("$.code").value("VERIFICATION_LOCKED"));
     }
 
     @Test
