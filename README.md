@@ -3,7 +3,7 @@
 회원가입·이메일 인증·로그인·JWT 발급·프로필을 맡는 서비스.
 
 - 설계(데이터·API·에러 코드): [nineouting-docs/docs/services/user-service.md](https://github.com/nineOuting/nineouting-docs/blob/main/docs/services/user-service.md)
-- 요구사항: REQ-004~014, REQ-102~106
+- 요구사항: REQ-004~014, 114~118
 - 포트: `8081`
 
 ## 로컬 실행

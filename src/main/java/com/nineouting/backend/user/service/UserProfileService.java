@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 내 정보 조회·수정 (REQ-102~106)과 다른 서비스용 사용자 조회.
+ * 내 정보 조회·수정 (REQ-114~118)과 다른 서비스용 사용자 조회.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,7 +49,7 @@ public class UserProfileService {
         return toMyProfile(user);
     }
 
-    /** REQ-104. 바꾸면 모든 기기의 로그인(refresh 토큰)을 끊는다. */
+    /** REQ-116. 바꾸면 모든 기기의 로그인(refresh 토큰)을 끊는다. */
     @Transactional
     public void changePassword(Long userId, String currentPassword, String newPassword) {
         User user = find(userId);
@@ -60,7 +60,7 @@ public class UserProfileService {
         refreshTokenStore.revokeAll(userId);
     }
 
-    /** REQ-103 ① 브라우저가 S3에 직접 올릴 주소를 발급한다. */
+    /** REQ-115 ① 브라우저가 S3에 직접 올릴 주소를 발급한다. */
     public ProfileImageUploadUrlResponse createUploadUrl(Long userId, String contentType) {
         String extension = IMAGE_EXTENSIONS.get(contentType);
         if (extension == null) {
@@ -70,7 +70,7 @@ public class UserProfileService {
         return new ProfileImageUploadUrlResponse(profileImageStorage.uploadUrl(key, contentType), key);
     }
 
-    /** REQ-103 ② 업로드가 끝난 사진을 내 프로필로 등록하고, 이전 사진은 지운다. */
+    /** REQ-115 ② 업로드가 끝난 사진을 내 프로필로 등록하고, 이전 사진은 지운다. */
     @Transactional
     public String registerProfileImage(Long userId, String imageKey) {
         if (!imageKey.startsWith(keyPrefix(userId))) {
@@ -91,7 +91,7 @@ public class UserProfileService {
         return profileImageStorage.downloadUrl(imageKey);
     }
 
-    /** REQ-103 ③ */
+    /** REQ-115 ③ */
     @Transactional
     public void deleteProfileImage(Long userId) {
         User user = find(userId);

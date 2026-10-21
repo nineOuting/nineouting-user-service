@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 회원가입 전 이메일 인증 (REQ-011). 6자리 코드, 10분 유효, 5번 틀리면 무효.
+ * 회원가입 전 이메일 인증 (REQ-011). 6자리 코드, 10분 유효, 5번 틀리면 무효가 되고 5분 동안 다시 받을 수 없다.
  * 인증을 마친 이메일은 30분 동안 가입할 수 있다.
  */
 @Service
@@ -21,10 +21,12 @@ public class EmailVerificationService {
 
     static final Duration CODE_TTL = Duration.ofMinutes(10);
     static final Duration VERIFIED_TTL = Duration.ofMinutes(30);
+    static final Duration LOCK_TTL = Duration.ofMinutes(5);
     static final int MAX_ATTEMPTS = 5;
 
     private static final String CODE_KEY = "email-verification:";
     private static final String VERIFIED_KEY = "email-verified:";
+    private static final String LOCK_KEY = "email-verification-lock:";
     private static final String FIELD_CODE = "code";
     private static final String FIELD_ATTEMPTS = "attempts";
     private static final int CODE_BOUND = 1_000_000;
@@ -40,6 +42,7 @@ public class EmailVerificationService {
         if (userRepository.existsByEmail(email)) {
             throw new BusinessException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
+        requireNotLocked(email);
         String code = String.format("%06d", random.nextInt(CODE_BOUND));
         String key = CODE_KEY + email;
         redis.delete(key);
@@ -49,6 +52,7 @@ public class EmailVerificationService {
     }
 
     public void confirm(String email, String code) {
+        requireNotLocked(email);
         String key = CODE_KEY + email;
         Object expected = redis.opsForHash().get(key, FIELD_CODE);
         if (expected == null) {
@@ -58,12 +62,20 @@ public class EmailVerificationService {
             long attempts = redis.opsForHash().increment(key, FIELD_ATTEMPTS, 1);
             if (attempts >= MAX_ATTEMPTS) {
                 redis.delete(key);
-                throw new BusinessException(UserErrorCode.VERIFICATION_EXPIRED);
+                redis.opsForValue().set(LOCK_KEY + email, "true", LOCK_TTL);
+                throw new BusinessException(UserErrorCode.VERIFICATION_LOCKED);
             }
-            throw new BusinessException(UserErrorCode.VERIFICATION_CODE_MISMATCH);
+            throw new BusinessException(UserErrorCode.VERIFICATION_CODE_MISMATCH,
+                    UserErrorCode.codeMismatchMessage(attempts, MAX_ATTEMPTS));
         }
         redis.delete(key);
         redis.opsForValue().set(VERIFIED_KEY + email, "true", VERIFIED_TTL);
+    }
+
+    private void requireNotLocked(String email) {
+        if (Boolean.TRUE.equals(redis.hasKey(LOCK_KEY + email))) {
+            throw new BusinessException(UserErrorCode.VERIFICATION_LOCKED);
+        }
     }
 
     /** 가입할 때 인증 완료 표시를 확인하고 지운다. */

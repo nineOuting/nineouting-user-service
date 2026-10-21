@@ -19,18 +19,20 @@ public class AuthService {
     private final EmailVerificationService emailVerificationService;
     private final AccessTokenIssuer accessTokenIssuer;
     private final RefreshTokenStore refreshTokenStore;
+    private final LoginFailureStore loginFailureStore;
 
     /** 없는 이메일로 로그인해도 비밀번호 비교 시간을 똑같이 써서, 응답 시간으로 가입 여부를 알 수 없게 한다. */
     private final String dummyPasswordHash;
 
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
                        EmailVerificationService emailVerificationService, AccessTokenIssuer accessTokenIssuer,
-                       RefreshTokenStore refreshTokenStore) {
+                       RefreshTokenStore refreshTokenStore, LoginFailureStore loginFailureStore) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailVerificationService = emailVerificationService;
         this.accessTokenIssuer = accessTokenIssuer;
         this.refreshTokenStore = refreshTokenStore;
+        this.loginFailureStore = loginFailureStore;
         this.dummyPasswordHash = passwordEncoder.encode("dummy-password-0");
     }
 
@@ -48,13 +50,16 @@ public class AuthService {
         }
     }
 
+    /** REQ-007. 5번 연속 실패하면 10분 동안 막는다 */
     @Transactional(readOnly = true)
     public IssuedTokens login(String email, String password) {
+        loginFailureStore.requireNotLocked(email);
         Optional<User> user = userRepository.findByEmail(email);
         String hash = user.map(User::getPasswordHash).orElse(dummyPasswordHash);
         if (!passwordEncoder.matches(password, hash) || user.isEmpty()) {
-            throw new BusinessException(UserErrorCode.LOGIN_FAILED);
+            throw loginFailureStore.recordFailure(email);
         }
+        loginFailureStore.clear(email);
         return issueTokens(user.get().getId());
     }
 

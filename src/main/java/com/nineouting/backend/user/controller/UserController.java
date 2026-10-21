@@ -34,14 +34,14 @@ public class UserController {
         return ApiResponse.ok(userProfileService.getMyProfile(user.userId()));
     }
 
-    /** REQ-102 이름, REQ-106 소속 */
+    /** REQ-114 이름, REQ-118 소속 */
     @PatchMapping
     public ApiResponse<MyProfileResponse> updateProfile(@CurrentUser AuthenticatedUser user,
                                                         @Valid @RequestBody UpdateProfileRequest request) {
         return ApiResponse.ok(userProfileService.updateProfile(user.userId(), request.name(), request.affiliation()));
     }
 
-    /** REQ-104 */
+    /** REQ-116 */
     @PutMapping("/password")
     public ApiResponse<Void> changePassword(@CurrentUser AuthenticatedUser user,
                                             @Valid @RequestBody ChangePasswordRequest request) {
@@ -49,14 +49,14 @@ public class UserController {
         return ApiResponse.ok();
     }
 
-    /** REQ-103 ① S3 업로드 주소 발급 */
+    /** REQ-115 ① S3 업로드 주소 발급 */
     @PostMapping("/profile-image/upload-url")
     public ApiResponse<ProfileImageUploadUrlResponse> createUploadUrl(
             @CurrentUser AuthenticatedUser user, @Valid @RequestBody ProfileImageUploadUrlRequest request) {
         return ApiResponse.ok(userProfileService.createUploadUrl(user.userId(), request.contentType()));
     }
 
-    /** REQ-103 ② 업로드 완료 후 등록 */
+    /** REQ-115 ② 업로드 완료 후 등록 */
     @PutMapping("/profile-image")
     public ApiResponse<ProfileImageResponse> registerProfileImage(
             @CurrentUser AuthenticatedUser user, @Valid @RequestBody RegisterProfileImageRequest request) {
@@ -64,7 +64,7 @@ public class UserController {
                 userProfileService.registerProfileImage(user.userId(), request.imageKey())));
     }
 
-    /** REQ-103 ③ */
+    /** REQ-115 ③ */
     @DeleteMapping("/profile-image")
     public ApiResponse<Void> deleteProfileImage(@CurrentUser AuthenticatedUser user) {
         userProfileService.deleteProfileImage(user.userId());
