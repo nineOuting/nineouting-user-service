@@ -16,7 +16,7 @@ public enum UserErrorCode implements ErrorCode {
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "이메일 인증을 먼저 완료해 주세요"),
     VERIFICATION_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "인증 번호가 올바르지 않습니다. 다시 확인해 주세요."),
     VERIFICATION_EXPIRED(HttpStatus.BAD_REQUEST, "인증 시간이 지났습니다. 인증 번호를 다시 받아 주세요."),
-    VERIFICATION_LOCKED(HttpStatus.TOO_MANY_REQUESTS, "인증에 5회 실패하여 일시적으로 제한되었습니다. 5분 후에 다시 시도해 주세요."),
+    VERIFICATION_LOCKED(HttpStatus.TOO_MANY_REQUESTS, "인증에 5회 실패하여 일시적으로 제한되었습니다. 30분 후에 다시 시도해 주세요."),
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다. 다시 확인해 주세요."),
     LOGIN_LOCKED(HttpStatus.TOO_MANY_REQUESTS,
             "로그인에 5회 실패하여 일시적으로 제한되었습니다. 10분 후에 다시 시도하거나 비밀번호를 재설정해 주세요."),

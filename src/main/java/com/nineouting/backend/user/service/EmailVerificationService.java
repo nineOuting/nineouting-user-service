@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 회원가입 전 이메일 인증 (REQ-011). 6자리 코드, 10분 유효, 5번 틀리면 무효가 되고 5분 동안 다시 받을 수 없다.
+ * 회원가입 전 이메일 인증 (REQ-011). 6자리 코드, 10분 유효, 5번 틀리면 무효가 되고 30분 동안 다시 받을 수 없다.
  * 인증을 마친 이메일은 30분 동안 가입할 수 있다.
  */
 @Service
@@ -21,7 +21,7 @@ public class EmailVerificationService {
 
     static final Duration CODE_TTL = Duration.ofMinutes(10);
     static final Duration VERIFIED_TTL = Duration.ofMinutes(30);
-    static final Duration LOCK_TTL = Duration.ofMinutes(5);
+    static final Duration LOCK_TTL = Duration.ofMinutes(30);
     static final int MAX_ATTEMPTS = 5;
 
     private static final String CODE_KEY = "email-verification:";
