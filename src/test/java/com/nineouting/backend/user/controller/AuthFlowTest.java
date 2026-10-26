@@ -97,7 +97,7 @@ class AuthFlowTest {
     }
 
     @Test
-    void 인증_코드를_5번_틀리면_5분_동안_제한된다() throws Exception {
+    void 인증_코드를_5번_틀리면_30분_동안_제한된다() throws Exception {
         String email = newEmail();
         postJson("/api/auth/email-verifications", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
         String wrong = "000000".equals(mail.codeFor(email)) ? "111111" : "000000";
@@ -223,7 +223,7 @@ class AuthFlowTest {
     }
 
     @Test
-    void 비밀번호_찾기_인증_번호는_한_번만_쓸_수_있고_5번_틀리면_5분_동안_제한된다() throws Exception {
+    void 비밀번호_찾기_인증_번호는_한_번만_쓸_수_있고_5번_틀리면_30분_동안_제한된다() throws Exception {
         String email = newEmail();
         signup(email);
         postJson("/api/auth/password-reset", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());

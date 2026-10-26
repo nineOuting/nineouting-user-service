@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 비밀번호 찾기 (REQ-009). 가입된 이메일이면 6자리 인증 번호(5분 유효)를 보낸다.
- * 5번 틀리면 무효가 되고 5분 동안 인증할 수 없다 (MSG-006).
+ * 5번 틀리면 무효가 되고 30분 동안 인증할 수 없다 (MSG-006).
  * 인증 번호가 맞으면 새 비밀번호를 설정할 수 있는 재설정 토큰(10분 유효, 한 번만 사용)을 준다.
  * 가입 여부를 알 수 없도록 인증 번호 요청 결과는 항상 같다.
  */
@@ -27,7 +27,7 @@ public class PasswordResetService {
 
     static final Duration CODE_TTL = Duration.ofMinutes(5);
     static final Duration TOKEN_TTL = Duration.ofMinutes(10);
-    static final Duration LOCK_TTL = Duration.ofMinutes(5);
+    static final Duration LOCK_TTL = Duration.ofMinutes(30);
     static final int MAX_ATTEMPTS = 5;
 
     private static final String CODE_KEY = "password-reset-code:";
