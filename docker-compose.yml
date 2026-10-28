@@ -22,20 +22,18 @@ services:
     ports:
       - "6379:6379"
 
-  kafka:
-    image: apache/kafka:3.9.1   # KRaft 단일 브로커, localhost:9092
-    ports:
-      - "9092:9092"
-
-  s3:
-    # 로컬용 S3 (프로필 사진). MinIO는 공식 이미지 배포가 중단되어 LocalStack을 쓴다.
+  localstack:
+    # 로컬용 AWS: S3(프로필 사진), SNS·SQS(이벤트). MinIO는 공식 이미지 배포가 중단되어 LocalStack을 쓴다.
+    # 다른 서비스 compose에도 같은 LocalStack이 있다. 4566이 겹치므로 하나만 띄워 함께 쓴다.
     image: localstack/localstack:4.4
     environment:
-      SERVICES: s3
+      SERVICES: s3,sns,sqs
+      AWS_DEFAULT_REGION: ap-northeast-2
     ports:
       - "4566:4566"
     volumes:
       - ./docker/localstack/init-s3.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+      - ./docker/localstack/init-sns-sqs.sh:/etc/localstack/init/ready.d/init-sns-sqs.sh:ro
 
 volumes:
   postgres-data:

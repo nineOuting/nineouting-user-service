@@ -1,5 +1,7 @@
 package com.nineouting.backend.user;
 
+import com.nineouting.backend.common.event.user.EmailVerificationRequested;
+import com.nineouting.backend.common.event.user.PasswordResetRequested;
 import com.nineouting.backend.user.service.EventMailNotifier;
 import com.nineouting.backend.user.service.MailNotifier;
 import java.io.IOException;
@@ -12,13 +14,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.localstack.LocalStackContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 /**
- * 테스트용 PostgreSQL·Redis·Kafka·S3(LocalStack)를 Docker로 띄우고 접속 정보를 자동으로 연결한다.
+ * 테스트용 PostgreSQL·Redis·LocalStack(S3·SNS·SQS)을 Docker로 띄우고 접속 정보를 자동으로 연결한다.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
@@ -38,14 +44,38 @@ public class TestcontainersConfiguration {
     }
 
     @Bean
-    @ServiceConnection
-    KafkaContainer kafkaContainer() {
-        return new KafkaContainer(DockerImageName.parse("apache/kafka:3.9.1"));
+    LocalStackContainer localStackContainer() {
+        return new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.4")).withServices("s3", "sns", "sqs");
     }
 
     @Bean
-    LocalStackContainer localStackContainer() {
-        return new LocalStackContainer(DockerImageName.parse("localstack/localstack:4.4")).withServices("s3");
+    SnsClient snsClient(LocalStackContainer localStack) {
+        return SnsClient.builder().endpointOverride(localStack.getEndpoint()).region(Region.of(localStack.getRegion()))
+                .credentialsProvider(credentials(localStack)).build();
+    }
+
+    @Bean
+    SqsClient sqsClient(LocalStackContainer localStack) {
+        return SqsClient.builder().endpointOverride(localStack.getEndpoint()).region(Region.of(localStack.getRegion()))
+                .credentialsProvider(credentials(localStack)).build();
+    }
+
+    @Bean
+    LocalMessaging localMessaging(SnsClient snsClient, SqsClient sqsClient) {
+        return new LocalMessaging(snsClient, sqsClient);
+    }
+
+    /** 이 서비스가 보내는 토픽을 만들고 outbox에 토픽 ARN 앞부분을 알려 준다 */
+    @Bean
+    DynamicPropertyRegistrar messagingProperties(LocalMessaging messaging) {
+        return registry -> {
+            messaging.topicArn(PasswordResetRequested.TOPIC);
+            registry.add("nineouting.outbox.topic-prefix", () -> messaging.topicArnPrefix(EmailVerificationRequested.TOPIC));
+        };
+    }
+
+    private static StaticCredentialsProvider credentials(LocalStackContainer localStack) {
+        return StaticCredentialsProvider.create(AwsBasicCredentials.create(localStack.getAccessKey(), localStack.getSecretKey()));
     }
 
     /** LocalStack S3 접속 정보를 설정에 넣고 테스트용 버킷을 만든다. */
