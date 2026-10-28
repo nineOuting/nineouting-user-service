@@ -10,12 +10,15 @@ import com.nineouting.backend.user.dto.ProfileImageUploadUrlRequest;
 import com.nineouting.backend.user.dto.ProfileImageUploadUrlResponse;
 import com.nineouting.backend.user.dto.RegisterProfileImageRequest;
 import com.nineouting.backend.user.dto.UpdateProfileRequest;
+import com.nineouting.backend.user.dto.UpdateWorkspaceProfileRequest;
+import com.nineouting.backend.user.dto.WorkspaceProfileResponse;
 import com.nineouting.backend.user.service.UserProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -69,5 +72,36 @@ public class UserController {
     public ApiResponse<Void> deleteProfileImage(@CurrentUser AuthenticatedUser user) {
         userProfileService.deleteProfileImage(user.userId());
         return ApiResponse.ok();
+    }
+
+    /** REQ-114·115·118 워크스페이스에서 보이는 내 프로필 */
+    @GetMapping("/workspaces/{workspaceId}/profile")
+    public ApiResponse<WorkspaceProfileResponse> getWorkspaceProfile(@CurrentUser AuthenticatedUser user,
+                                                                     @PathVariable Long workspaceId) {
+        return ApiResponse.ok(userProfileService.getWorkspaceProfile(user.userId(), workspaceId));
+    }
+
+    /** 보낸 칸만 바꾼다. 빈 문자열이면 계정 프로필로 돌아간다 */
+    @PatchMapping("/workspaces/{workspaceId}/profile")
+    public ApiResponse<WorkspaceProfileResponse> updateWorkspaceProfile(@CurrentUser AuthenticatedUser user,
+                                                                        @PathVariable Long workspaceId,
+                                                                        @Valid @RequestBody UpdateWorkspaceProfileRequest request) {
+        return ApiResponse.ok(userProfileService.updateWorkspaceProfile(user.userId(), workspaceId, request.name(),
+                request.affiliation()));
+    }
+
+    /** 사진은 /profile-image/upload-url로 올린 뒤 등록한다 */
+    @PutMapping("/workspaces/{workspaceId}/profile/image")
+    public ApiResponse<WorkspaceProfileResponse> registerWorkspaceProfileImage(
+            @CurrentUser AuthenticatedUser user, @PathVariable Long workspaceId,
+            @Valid @RequestBody RegisterProfileImageRequest request) {
+        return ApiResponse.ok(userProfileService.registerWorkspaceProfileImage(user.userId(), workspaceId, request.imageKey()));
+    }
+
+    /** 이 워크스페이스의 사진을 지워 계정 사진으로 돌아간다 */
+    @DeleteMapping("/workspaces/{workspaceId}/profile/image")
+    public ApiResponse<WorkspaceProfileResponse> deleteWorkspaceProfileImage(@CurrentUser AuthenticatedUser user,
+                                                                             @PathVariable Long workspaceId) {
+        return ApiResponse.ok(userProfileService.deleteWorkspaceProfileImage(user.userId(), workspaceId));
     }
 }

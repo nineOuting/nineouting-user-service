@@ -154,6 +154,43 @@ class ProfileFlowTest {
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
     }
 
+    @Test
+    void 워크스페이스마다_이름_소속_사진을_따로_정하고_비우면_계정_프로필로_돌아간다() throws Exception {
+        LoggedIn me = signupAndLogin();
+        perform(me, patchJson("/api/users/me", "{\"affiliation\":\"개발팀\"}")).andExpect(status().isOk());
+        long workspaceId = 77;
+
+        perform(me, get("/api/users/me/workspaces/" + workspaceId + "/profile"))
+                .andExpect(jsonPath("$.data.name").value("테스터"))
+                .andExpect(jsonPath("$.data.customName").value(false));
+        perform(me, patchJson("/api/users/me/workspaces/" + workspaceId + "/profile", "{\"name\":\"김PM\",\"affiliation\":\"기획팀\"}"))
+                .andExpect(jsonPath("$.data.name").value("김PM"))
+                .andExpect(jsonPath("$.data.affiliation").value("기획팀"))
+                .andExpect(jsonPath("$.data.customName").value(true));
+        String imageKey = upload(me, "image/png", new byte[] {7});
+        perform(me, putJson("/api/users/me/workspaces/" + workspaceId + "/profile/image", "{\"imageKey\":\"%s\"}".formatted(imageKey)))
+                .andExpect(jsonPath("$.data.customProfileImage").value(true));
+
+        // 다른 서비스는 workspaceId를 주면 그 워크스페이스의 값을, 안 주면 계정 프로필을 받는다
+        mockMvc.perform(get("/internal/users").param("ids", me.userId.toString()).param("workspaceId", String.valueOf(workspaceId)))
+                .andExpect(jsonPath("$.data[0].name").value("김PM"))
+                .andExpect(jsonPath("$.data[0].affiliation").value("기획팀"))
+                .andExpect(jsonPath("$.data[0].profileImageUrl").isNotEmpty());
+        mockMvc.perform(get("/internal/users").param("ids", me.userId.toString()))
+                .andExpect(jsonPath("$.data[0].name").value("테스터"))
+                .andExpect(jsonPath("$.data[0].affiliation").value("개발팀"))
+                .andExpect(jsonPath("$.data[0].profileImageUrl").doesNotExist());
+        mockMvc.perform(get("/internal/users").param("ids", me.userId.toString()).param("workspaceId", "78"))
+                .andExpect(jsonPath("$.data[0].name").value("테스터"));
+
+        perform(me, patchJson("/api/users/me/workspaces/" + workspaceId + "/profile", "{\"name\":\"\"}"))
+                .andExpect(jsonPath("$.data.name").value("테스터"))
+                .andExpect(jsonPath("$.data.affiliation").value("기획팀"));
+        perform(me, delete("/api/users/me/workspaces/" + workspaceId + "/profile/image"))
+                .andExpect(jsonPath("$.data.customProfileImage").value(false));
+        assertThat(profileImageStorage.size(imageKey)).isEmpty();
+    }
+
     private String upload(LoggedIn user, String contentType, byte[] content) throws Exception {
         String body = perform(user, postJson("/api/users/me/profile-image/upload-url", "{\"contentType\":\"%s\"}".formatted(contentType)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
