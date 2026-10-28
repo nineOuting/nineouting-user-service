@@ -21,7 +21,8 @@ public class InternalUserController {
     private final UserProfileService userProfileService;
 
     @GetMapping
-    public ApiResponse<List<UserSummaryResponse>> findUsers(@RequestParam List<Long> ids) {
-        return ApiResponse.ok(userProfileService.findSummaries(ids));
+    public ApiResponse<List<UserSummaryResponse>> findUsers(@RequestParam List<Long> ids,
+                                                            @RequestParam(required = false) Long workspaceId) {
+        return ApiResponse.ok(userProfileService.findSummaries(ids, workspaceId));
     }
 }

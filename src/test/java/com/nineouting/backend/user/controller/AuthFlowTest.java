@@ -118,12 +118,25 @@ class AuthFlowTest {
 
     @Test
     void 비밀번호_규칙에_맞지_않으면_틀린_칸을_알려_준다() throws Exception {
-        for (String password : new String[] {"short1", "onlyletters", "12345678", "password1!"}) {
+        for (String password : new String[] {"short1", "onlyletters", "12345678", "pass word1", "비밀번호abc1"}) {
             postJson("/api/auth/signup", signupBody(newEmail(), password))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
                     .andExpect(jsonPath("$.data[0].field").value("password"));
         }
+    }
+
+    @Test
+    void 비밀번호에_특수문자를_쓸_수_있다() throws Exception {
+        String email = newEmail();
+        postJson("/api/auth/email-verifications", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
+        confirm(email, mail.codeFor(email)).andExpect(status().isOk());
+        String password = "p@ss-w0rd!#";
+
+        postJson("/api/auth/signup", signupBody(email, password)).andExpect(status().isCreated());
+
+        postJson("/api/auth/login", "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password))
+                .andExpect(status().isOk());
     }
 
     @Test
