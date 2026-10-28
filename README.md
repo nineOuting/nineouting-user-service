@@ -24,8 +24,7 @@
    |--------|------|------|
    | PostgreSQL | `localhost:5433` | DB `user_db` / `user_service` / `user_service` |
    | Redis | `localhost:6379` | |
-   | Kafka | `localhost:9092` | |
-   | S3 (LocalStack) | `http://localhost:4566` | 버킷 `nineouting-local` |
+   | LocalStack (S3·SNS·SQS) | `http://localhost:4566` | 버킷 `nineouting-local`, 토픽·큐는 `docker/localstack/init-sns-sqs.sh` |
 3. 서비스 실행
    ```bash
    ./gradlew bootRun --args='--spring.profiles.active=local'
@@ -33,12 +32,12 @@
 4. 확인: `http://localhost:8081/actuator/health`
 
 `local` 프로필에서는 회원가입·비밀번호 찾기 인증 코드가 로그에 찍힌다 (`[로컬 메일] ...`). notification-service 없이 가입을 테스트할 수 있다.
-보낸 이벤트는 Kafka 토픽 `user.email-verification-requested`, `user.password-reset-requested`에서 볼 수 있다.
+보낸 이벤트는 SNS 토픽 `nineouting-local-user-email-verification-requested.fifo`, `...-user-password-reset-requested.fifo`로 가서 notification-service 큐(`nineouting-local-notification-service.fifo`)에 쌓인다.
 
 ## 테스트
 
 ```bash
-./gradlew test   # Testcontainers로 PostgreSQL·Redis·Kafka·S3(LocalStack)를 띄우므로 Docker가 켜져 있어야 한다
+./gradlew test   # Testcontainers로 PostgreSQL·Redis·LocalStack(S3·SNS·SQS)을 띄우므로 Docker가 켜져 있어야 한다
 ```
 
 ## 환경 변수
@@ -49,7 +48,9 @@
 | `DB_URL` | `jdbc:postgresql://localhost:5433/user_db` | |
 | `DB_USERNAME` / `DB_PASSWORD` | `user_service` | |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` | |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | 메일 발송 요청 이벤트 |
+| `SNS_TOPIC_PREFIX` | `arn:aws:sns:ap-northeast-2:000000000000:nineouting-local-` | 메일 발송 요청 이벤트를 보낼 SNS 토픽 ARN 앞부분 (뒤에 이벤트 이름이 붙는다) |
+| `AWS_ENDPOINT_URL` | — | 비우면 AWS. LocalStack이면 `http://localhost:4566` (`local` 프로필은 자동) |
+| `MESSAGING_ACCESS_KEY` / `MESSAGING_SECRET_KEY` | — | 비우면 AWS 기본 자격 증명(EKS는 IRSA). LocalStack은 `test` (`local` 프로필은 자동) |
 | `JWT_PRIVATE_KEY` | — | RS256 개인키(PKCS#8 PEM). **운영 필수** (`local`은 없으면 임시 키) |
 | `JWT_KEY_ID` | `user-service-1` | 키를 교체할 때 바꾼다 |
 | `REFRESH_COOKIE_SECURE` | `true` | `local`은 `false` |
