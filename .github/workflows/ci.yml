@@ -32,6 +32,8 @@ jobs:
   # dev에 머지되면 이미지를 GitHub 컨테이너 저장소(ghcr.io)에 올린다.
   # 팀원은 nineouting-infra의 integration/으로 이 이미지를 받아 전체 서비스를 띄운다.
   image:
+    outputs:
+      image_digest: ${{ steps.publish.outputs.digest }}
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
@@ -55,6 +57,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
+        id: publish
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -70,3 +73,77 @@ jobs:
             gpr_token=${{ secrets.GPR_TOKEN }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  sandbox-ecr:
+    name: Verify and publish Sandbox ECR image
+    needs: image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+    env:
+      AWS_REGION: ap-northeast-2
+      EXPECTED_ACCOUNT: '904140717603'
+      SOURCE_IMAGE: ghcr.io/nineouting/nineouting-user-service
+      SOURCE_DIGEST: ${{ needs.image.outputs.image_digest }}
+      TARGET_IMAGE: 904140717603.dkr.ecr.ap-northeast-2.amazonaws.com/nineouting-sandbox-user
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - name: Login to existing GHCR image
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Authenticate to Sandbox with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::904140717603:role/nineouting-sandbox-user-github
+          aws-region: ap-northeast-2
+          role-session-name: gha-${{ github.run_id }}
+      - name: Check account
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "$EXPECTED_ACCOUNT"
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Verify amd64 and publish exact built image
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          source="$SOURCE_IMAGE@$SOURCE_DIGEST"
+          tag="sha-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          target="$TARGET_IMAGE:$tag"
+          docker pull --platform linux/amd64 "$source"
+          source_id=$(docker image inspect "$source" --format '{{.Id}}')
+          test "$(docker image inspect "$source" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          docker tag "$source_id" "$target"
+          docker push "$target"
+          docker buildx imagetools inspect "$target" > ecr-manifest.txt
+          digest=$(awk '$1 == "Digest:" {print $2; exit}' ecr-manifest.txt)
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker pull --platform linux/amd64 "$TARGET_IMAGE@$digest"
+          test "$(docker image inspect "$TARGET_IMAGE@$digest" --format '{{.Id}}')" = "$source_id"
+          test "$(docker image inspect "$TARGET_IMAGE@$digest" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          {
+            echo '## Sandbox ECR verification PASS'
+            echo '- OIDC account / ECR login / push / amd64 / image ID match: PASS'
+            echo "- Source: $source"
+            echo "- Target: $target"
+            echo "- ECR digest: $digest"
+            echo '- Deployment: NOT RUN'
+          } >> "$GITHUB_STEP_SUMMARY"
+          printf 'image.repository=%s\nimage.digest=%s\nimage.tag=%s\n' "$TARGET_IMAGE" "$digest" "$tag" > image-result.txt
+      - name: Save verified image reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-ecr-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            image-result.txt
+            ecr-manifest.txt
+          retention-days: 30
