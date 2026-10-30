@@ -1,0 +1,5 @@
+nineouting:
+  user:
+    refresh-cookie-secure: false
+    jwt:
+      allow-ephemeral-key: true
