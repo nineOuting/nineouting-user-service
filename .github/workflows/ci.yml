@@ -73,9 +73,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 이번 CI에서 생성한 AMD64 이미지를 Sandbox ECR에 게시
-  sandbox-ecr:
-    name: Verify and publish Sandbox ECR image
+  # 이번 CI에서 생성한 AMD64 이미지를 DEV ECR에 게시
+  dev-ecr:
+    name: Verify and publish DEV ECR image
     needs: image
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
@@ -86,10 +86,10 @@ jobs:
       id-token: write
     env:
       AWS_REGION: ap-northeast-2
-      EXPECTED_ACCOUNT: '904140717603'
+      EXPECTED_ACCOUNT: '443845329525'
       SOURCE_IMAGE: ghcr.io/nineouting/nineouting-user-service
       SOURCE_DIGEST: ${{ needs.image.outputs.image_digest }}
-      TARGET_IMAGE: 904140717603.dkr.ecr.ap-northeast-2.amazonaws.com/nineouting-sandbox-user
+      TARGET_IMAGE: 443845329525.dkr.ecr.ap-northeast-2.amazonaws.com/nineouting-dev-user
 
     steps:
       - uses: docker/setup-buildx-action@v3
@@ -101,10 +101,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Authenticate to Sandbox with OIDC
+      - name: Authenticate to DEV with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::904140717603:role/nineouting-sandbox-user-github
+          role-to-assume: arn:aws:iam::443845329525:role/nineouting-dev-user-github
           aws-region: ap-northeast-2
           role-session-name: gha-${{ github.run_id }}
 
@@ -228,7 +228,7 @@ jobs:
 
           # 9. GitHub Actions 실행 결과 요약
           {
-            echo '## Sandbox ECR Publish PASS'
+            echo '## DEV ECR Publish PASS'
             echo "- Source: $source"
             echo "- Source AMD64 digest: $amd64_digest"
             echo "- Target: $target"
@@ -241,7 +241,7 @@ jobs:
       - name: Save verified image reference
         uses: actions/upload-artifact@v4
         with:
-          name: sandbox-ecr-image-${{ github.run_id }}-${{ github.run_attempt }}
+          name: dev-ecr-image-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             image-result.txt
             ecr-manifest.txt
