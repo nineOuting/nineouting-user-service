@@ -42,6 +42,7 @@ nineouting:
       bucket: ${STORAGE_BUCKET:nineouting-profile-images}
       region: ${AWS_REGION:ap-northeast-2}
       endpoint: ${STORAGE_ENDPOINT:}        # 비우면 AWS S3
+      presign-endpoint: ${STORAGE_PRESIGN_ENDPOINT:}  # 브라우저에 줄 주소만 다를 때 (로컬 통합 환경)
       access-key: ${STORAGE_ACCESS_KEY:}    # 비우면 AWS 기본 자격 증명(IAM 역할 등)
       secret-key: ${STORAGE_SECRET_KEY:}
       upload-url-ttl: 5m

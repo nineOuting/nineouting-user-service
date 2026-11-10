@@ -33,9 +33,10 @@ public class StorageConfig {
         var builder = S3Presigner.builder()
                 .region(Region.of(properties.region()))
                 .credentialsProvider(credentials(properties));
-        if (properties.hasEndpoint()) {
+        String presignEndpoint = properties.presignEndpointOrDefault();
+        if (presignEndpoint != null && !presignEndpoint.isBlank()) {
             // LocalStack은 버킷을 경로에 넣는 방식(path-style)만 지원한다
-            builder.endpointOverride(URI.create(properties.endpoint()))
+            builder.endpointOverride(URI.create(presignEndpoint))
                     .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build());
         }
         return builder.build();
