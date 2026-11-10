@@ -85,7 +85,7 @@ public class AuthController {
         return withTokens(authService.refresh(refreshToken));
     }
 
-    /** REQ-004 로그아웃 */
+    /** REQ-003 로그아웃 */
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @CookieValue(name = REFRESH_COOKIE, required = false) String refreshToken) {
