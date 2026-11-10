@@ -76,7 +76,7 @@ public class AuthController {
     /** REQ-005~007 로그인 */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<TokenResponse>> login(@Valid @RequestBody LoginRequest request) {
-        return withTokens(authService.login(request.email(), request.password()));
+        return withTokens(authService.login(request.email(), request.password(), request.keepLoggedIn()));
     }
 
     @PostMapping("/refresh")
@@ -119,7 +119,7 @@ public class AuthController {
 
     private ResponseEntity<ApiResponse<TokenResponse>> withTokens(IssuedTokens tokens) {
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken(), refreshTokenStore.ttl()).toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie(tokens.refreshToken(), tokens.refreshTokenTtl()).toString())
                 .body(ApiResponse.ok(new TokenResponse(tokens.accessToken(), tokens.expiresIn())));
     }
 
