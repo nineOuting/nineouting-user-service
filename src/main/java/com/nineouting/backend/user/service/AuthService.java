@@ -5,6 +5,7 @@ import com.nineouting.backend.user.domain.User;
 import com.nineouting.backend.user.error.UserErrorCode;
 import com.nineouting.backend.user.repository.UserRepository;
 import com.nineouting.backend.user.security.AccessTokenIssuer;
+import java.time.Duration;
 import java.util.Optional;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -52,7 +53,7 @@ public class AuthService {
 
     /** REQ-007. 5번 연속 실패하면 10분 동안 막는다 */
     @Transactional(readOnly = true)
-    public IssuedTokens login(String email, String password) {
+    public IssuedTokens login(String email, String password, boolean keepLoggedIn) {
         loginFailureStore.requireNotLocked(email);
         Optional<User> user = userRepository.findByEmail(email);
         String hash = user.map(User::getPasswordHash).orElse(dummyPasswordHash);
@@ -60,14 +61,15 @@ public class AuthService {
             throw loginFailureStore.recordFailure(email);
         }
         loginFailureStore.clear(email);
-        return issueTokens(user.get().getId());
+        return issueTokens(user.get().getId(), keepLoggedIn);
     }
 
     public IssuedTokens refresh(String refreshToken) {
-        Long userId = Optional.ofNullable(refreshToken)
+        RefreshTokenStore.Owner owner = Optional.ofNullable(refreshToken)
                 .flatMap(refreshTokenStore::consume)
                 .orElseThrow(() -> new BusinessException(UserErrorCode.INVALID_REFRESH_TOKEN));
-        return issueTokens(userId);
+        // 처음 로그인할 때 고른 '로그인 상태 유지'를 그대로 따른다
+        return issueTokens(owner.userId(), owner.keepLoggedIn());
     }
 
     public void logout(String refreshToken) {
@@ -76,11 +78,12 @@ public class AuthService {
         }
     }
 
-    private IssuedTokens issueTokens(Long userId) {
+    private IssuedTokens issueTokens(Long userId, boolean keepLoggedIn) {
         return new IssuedTokens(accessTokenIssuer.issue(userId), accessTokenIssuer.ttlSeconds(),
-                refreshTokenStore.issue(userId));
+                refreshTokenStore.issue(userId, keepLoggedIn), refreshTokenStore.ttl(keepLoggedIn));
     }
 
-    public record IssuedTokens(String accessToken, long expiresIn, String refreshToken) {
+    /** refreshTokenTtl = refresh 쿠키를 둘 시간 (로그인 상태 유지 여부에 따라 다르다) */
+    public record IssuedTokens(String accessToken, long expiresIn, String refreshToken, Duration refreshTokenTtl) {
     }
 }

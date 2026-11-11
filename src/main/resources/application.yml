@@ -36,7 +36,8 @@ nineouting:
       private-key: ${JWT_PRIVATE_KEY:}      # RS256 개인키 (PKCS#8 PEM). 운영에서는 반드시 설정
       key-id: ${JWT_KEY_ID:user-service-1}
       access-token-ttl: 30m
-      refresh-token-ttl: 14d
+      refresh-token-ttl: 14d               # 로그인 상태 유지를 켰을 때
+      short-refresh-token-ttl: 1h          # 껐을 때: 브라우저를 닫아도 이 시간 안이면 유지, 쓰는 동안 갱신할 때마다 다시 시작
       allow-ephemeral-key: false
     storage:                               # 프로필 사진 (S3)
       bucket: ${STORAGE_BUCKET:nineouting-profile-images}

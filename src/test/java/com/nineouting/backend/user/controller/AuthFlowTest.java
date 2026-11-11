@@ -14,6 +14,7 @@ import com.nineouting.backend.user.TestcontainersConfiguration;
 import com.nineouting.backend.user.TestcontainersConfiguration.CapturingMailNotifier;
 import com.nineouting.backend.user.security.AccessTokenIssuer;
 import jakarta.servlet.http.Cookie;
+import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,6 +78,36 @@ class AuthFlowTest {
         assertThat(logout.getResponse().getCookie(AuthController.REFRESH_COOKIE).getMaxAge()).isZero();
         mockMvc.perform(post("/api/auth/refresh").cookie(rotated))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void 로그인_상태_유지를_끄면_1시간_켜면_14일_동안_유지되고_갱신해도_처음_고른_대로다() throws Exception {
+        String email = newEmail();
+        signup(email);
+        long hour = Duration.ofHours(1).toSeconds();
+        long twoWeeks = Duration.ofDays(14).toSeconds();
+
+        Cookie shortCookie = postJson("/api/auth/login",
+                "{\"email\":\"%s\",\"password\":\"%s\",\"keepLoggedIn\":false}".formatted(email, PASSWORD))
+                .andExpect(status().isOk()).andReturn().getResponse().getCookie(AuthController.REFRESH_COOKIE);
+        assertThat(shortCookie.getMaxAge()).isEqualTo(hour);
+        // 브라우저를 닫았다 열어도(쿠키가 남아 있으면) 다시 받을 수 있고, 갱신해도 짧은 쪽을 따른다
+        Cookie renewed = mockMvc.perform(post("/api/auth/refresh").cookie(shortCookie)).andExpect(status().isOk())
+                .andReturn().getResponse().getCookie(AuthController.REFRESH_COOKIE);
+        assertThat(renewed.getMaxAge()).isEqualTo(hour);
+
+        Cookie longCookie = postJson("/api/auth/login",
+                "{\"email\":\"%s\",\"password\":\"%s\",\"keepLoggedIn\":true}".formatted(email, PASSWORD))
+                .andReturn().getResponse().getCookie(AuthController.REFRESH_COOKIE);
+        assertThat(longCookie.getMaxAge()).isEqualTo(twoWeeks);
+        Cookie longRenewed = mockMvc.perform(post("/api/auth/refresh").cookie(longCookie))
+                .andReturn().getResponse().getCookie(AuthController.REFRESH_COOKIE);
+        assertThat(longRenewed.getMaxAge()).isEqualTo(twoWeeks);
+
+        // 보내지 않으면(예전 화면) 켠 것으로 본다
+        Cookie legacy = postJson("/api/auth/login", "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD))
+                .andReturn().getResponse().getCookie(AuthController.REFRESH_COOKIE);
+        assertThat(legacy.getMaxAge()).isEqualTo(twoWeeks);
     }
 
     @Test

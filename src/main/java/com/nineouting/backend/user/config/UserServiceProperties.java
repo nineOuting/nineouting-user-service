@@ -16,6 +16,7 @@ public record UserServiceProperties(boolean refreshCookieSecure, boolean logMail
      * @param allowEphemeralKey 재시작하면 바뀌는 임시 키 허용 여부 (로컬·테스트 전용)
      */
     public record Jwt(String privateKey, String keyId, Duration accessTokenTtl, Duration refreshTokenTtl,
+                      Duration shortRefreshTokenTtl,
                       boolean allowEphemeralKey) {
     }
 }
