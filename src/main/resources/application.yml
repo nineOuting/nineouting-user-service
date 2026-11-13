@@ -20,6 +20,9 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # Redis가 느리거나 멈추면 2초에 포기한다 (기본 60초면 요청이 그만큼 멈춘다, docs/redis-usage.md 6장 B)
+      timeout: 2s
+      connect-timeout: 2s
 
 nineouting:
   # 이벤트는 SNS로 보낸다. 자격 증명은 AWS SDK 기본 방식 (EKS는 IRSA, 로컬은 LocalStack)
