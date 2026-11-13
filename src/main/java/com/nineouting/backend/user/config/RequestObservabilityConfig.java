@@ -38,7 +38,7 @@ class RequestObservabilityConfig {
 
     @Bean
     FilterRegistrationBean<OncePerRequestFilter> requestAccessLog() {
-        var registration = new FilterRegistrationBean<>(new OncePerRequestFilter() {
+        var registration = new FilterRegistrationBean<OncePerRequestFilter>(new OncePerRequestFilter() {
             @Override
             protected boolean shouldNotFilter(HttpServletRequest request) {
                 String path = request.getServletPath();
