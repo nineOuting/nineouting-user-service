@@ -137,7 +137,7 @@ class AuthFlowTest {
             // MSG-005 틀린 횟수를 문구 끝에 붙인다
             confirm(email, wrong)
                     .andExpect(jsonPath("$.code").value("VERIFICATION_CODE_MISMATCH"))
-                    .andExpect(jsonPath("$.message").value("인증 번호가 올바르지 않습니다. 다시 확인해 주세요. (%d/5)".formatted(i)));
+                    .andExpect(jsonPath("$.message").value("인증 번호가 올바르지 않아요. 다시 확인해 주세요. (%d/5)".formatted(i)));
         }
         confirm(email, wrong)
                 .andExpect(status().isTooManyRequests())
