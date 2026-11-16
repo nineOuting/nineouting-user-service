@@ -30,6 +30,32 @@ jobs:
           GITHUB_ACTOR: ${{ github.actor }}
           GPR_TOKEN: ${{ secrets.GPR_TOKEN }}
 
+      - name: Prepare tested application
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        shell: bash
+        run: |
+          set -euo pipefail
+          jars=(build/libs/*.jar)
+          if [[ ${#jars[@]} -ne 1 || ! -s "${jars[0]}" ]]; then
+            echo '::error::Expected one nonempty executable JAR from the successful build'
+            exit 1
+          fi
+          mkdir -p tested-application
+          cp "${jars[0]}" tested-application/app.jar
+          (cd tested-application && sha256sum app.jar > app.jar.sha256)
+
+      - name: Save tested application
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tested-user-${{ github.run_id }}-${{ github.sha }}
+          path: |
+            tested-application/app.jar
+            tested-application/app.jar.sha256
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
   # dev에 Merge되면 GHCR에 AMD64/ARM64 이미지 게시
   image:
     outputs:
@@ -42,6 +68,20 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download tested application
+        uses: actions/download-artifact@v4
+        with:
+          name: tested-user-${{ github.run_id }}-${{ github.sha }}
+          path: tested-application
+
+      - name: Check tested application
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd tested-application
+          test -s app.jar
+          sha256sum --check app.jar.sha256
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -60,16 +100,14 @@ jobs:
         id: publish
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: tested-application
+          file: Dockerfile.ci
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ghcr.io/nineouting/${{ github.event.repository.name }}:dev
             ghcr.io/nineouting/${{ github.event.repository.name }}:${{ github.sha }}
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          secrets: |
-            gpr_actor=${{ github.actor }}
-            gpr_token=${{ secrets.GPR_TOKEN }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
