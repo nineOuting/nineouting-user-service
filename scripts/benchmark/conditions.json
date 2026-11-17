@@ -1,0 +1,17 @@
+{
+  "source_sha": "7eb77cd22632de192bfb01de3d5bcf2c80f770b5",
+  "runner": "ubuntu-24.04",
+  "java_version": "21.0.13+9",
+  "gradle_version": "9.5.1",
+  "buildx_version": "v0.39.0",
+  "jdk_image": "docker.io/library/eclipse-temurin@sha256:db5cc6341a1d7bc40cdb51e1f0d9824f3bb2cc8107d29da421dc4df7d11f05f1",
+  "jre_image": "docker.io/library/eclipse-temurin@sha256:ac05c3c42b7c2f1a52c9bd52f01041fa1958231b15ebeae7420429cbc5baf474",
+  "buildkit_image": "docker.io/moby/buildkit@sha256:aa632b921ef07411d2cb77292cd34213d4f7b384001d6fceef1e1f25bf9752bb",
+  "binfmt_image": "docker.io/tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0",
+  "platforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "cache": "cold",
+  "image_output": "OCI archive, gzip, runner-local; no push"
+}
