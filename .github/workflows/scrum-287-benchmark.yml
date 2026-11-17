@@ -1,0 +1,151 @@
+name: SCRUM-287 중복 빌드 제거 효과 반복 측정
+run-name: SCRUM-287 ${{ inputs.campaign }} ${{ inputs.phase }} ${{ inputs.trial }} ${{ inputs.method }}
+on:
+  workflow_dispatch:
+    inputs:
+      method:
+        type: choice
+        options: [original, reuse]
+        required: true
+      campaign:
+        description: Same identifier for one 20-run experiment
+        type: string
+        required: true
+      trial:
+        description: Trial 1-5 pilot; 6-10 confirm
+        type: string
+        required: true
+      phase:
+        type: choice
+        options: [pilot, confirm]
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: scrum-287-isolated-benchmark
+  cancel-in-progress: false
+env:
+  SOURCE_SHA: 7eb77cd22632de192bfb01de3d5bcf2c80f770b5
+  METHOD: ${{ inputs.method }}
+  CAMPAIGN: ${{ inputs.campaign }}
+  TRIAL: ${{ inputs.trial }}
+  PHASE: ${{ inputs.phase }}
+  SOURCE: ${{ github.workspace }}/source
+  RESULTS: ${{ github.workspace }}/benchmark-results
+  JAR_DIR: ${{ github.workspace }}/benchmark-tmp/tested-application
+  ARCHIVE: ${{ github.workspace }}/benchmark-tmp/scrum-287-image.tar
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GRADLE_USER_HOME: ${{ github.workspace }}/benchmark-tmp/scrum-287-gradle
+    steps:
+      - name: Checkout benchmark controls
+        uses: actions/checkout@v4
+        with:
+          path: control
+          persist-credentials: false
+      - name: Checkout fixed application source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21.0.13+9'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate identity and freeze recipes
+        run: |
+          python control/scripts/benchmark/measure.py prepare --method "$METHOD" --source "$SOURCE" --results "$RESULTS" --artifact "$JAR_DIR" --archive "$ARCHIVE" --campaign "$CAMPAIGN" --trial "$TRIAL" --phase "$PHASE"
+      - name: Gradle build and tests
+        env:
+          GPR_TOKEN: ${{ secrets.GPR_TOKEN }}
+        run: |
+          python control/scripts/benchmark/measure.py gradle --method "$METHOD" --source "$SOURCE" --results "$RESULTS" --artifact "$JAR_DIR" --archive "$ARCHIVE"
+      - name: Prepare tested application
+        if: inputs.method == 'reuse'
+        run: |
+          python control/scripts/benchmark/measure.py artifact --method "$METHOD" --source "$SOURCE" --results "$RESULTS" --artifact "$JAR_DIR" --archive "$ARCHIVE"
+      - name: Upload tested application
+        if: inputs.method == 'reuse'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tested-application-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.JAR_DIR }}
+          if-no-files-found: error
+          retention-days: 1
+      - name: Save build measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-measurements-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.RESULTS }}
+          if-no-files-found: error
+          retention-days: 7
+  image:
+    needs: build
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout benchmark controls
+        uses: actions/checkout@v4
+        with:
+          path: control
+          persist-credentials: false
+      - name: Checkout fixed application source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download build measurements and reference hashes
+        uses: actions/download-artifact@v4
+        with:
+          name: build-measurements-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.RESULTS }}
+      - name: Download tested application
+        if: inputs.method == 'reuse'
+        uses: actions/download-artifact@v4
+        with:
+          name: tested-application-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.JAR_DIR }}
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+          cache-image: false
+          image: docker.io/tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+      - uses: docker/setup-buildx-action@v3
+        with:
+          version: v0.39.0
+          driver-opts: image=docker.io/moby/buildkit@sha256:aa632b921ef07411d2cb77292cd34213d4f7b384001d6fceef1e1f25bf9752bb
+          cache-binary: false
+      - name: Docker package without publishing
+        env:
+          GPR_TOKEN: ${{ secrets.GPR_TOKEN }}
+        run: |
+          python control/scripts/benchmark/measure.py package --method "$METHOD" --source "$SOURCE" --results "$RESULTS" --artifact "$JAR_DIR" --archive "$ARCHIVE"
+      - name: Verify both packaged applications
+        run: |
+          python control/scripts/benchmark/verify_image.py --archive "$ARCHIVE" --reference "$RESULTS/reference.json" --output "$RESULTS/image-verification.json"
+      - name: Save image measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-measurements-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.RESULTS }}
+          if-no-files-found: error
+          retention-days: 7
+      - name: Delete local image archive
+        if: always()
+        run: |
+          python control/scripts/benchmark/measure.py cleanup --method "$METHOD" --source "$SOURCE" --results "$RESULTS" --artifact "$JAR_DIR" --archive "$ARCHIVE"
