@@ -158,16 +158,10 @@ class AuthFlowTest {
     }
 
     @Test
-    void 비밀번호에_특수문자를_쓸_수_있다() throws Exception {
-        String email = newEmail();
-        postJson("/api/auth/email-verifications", "{\"email\":\"%s\"}".formatted(email)).andExpect(status().isOk());
-        confirm(email, mail.codeFor(email)).andExpect(status().isOk());
-        String password = "p@ss-w0rd!#";
-
-        postJson("/api/auth/signup", signupBody(email, password)).andExpect(status().isCreated());
-
-        postJson("/api/auth/login", "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password))
-                .andExpect(status().isOk());
+    void 비밀번호에_특수문자는_쓸_수_없다() throws Exception {
+        postJson("/api/auth/signup", signupBody(newEmail(), "p@ss-w0rd!#"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data[0].field").value("password"));
     }
 
     @Test
