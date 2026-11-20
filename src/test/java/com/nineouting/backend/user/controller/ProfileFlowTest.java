@@ -81,6 +81,10 @@ class ProfileFlowTest {
     @Test
     void 비밀번호를_바꾸면_새_비밀번호로_로그인되고_기존_로그인은_끊긴다() throws Exception {
         LoggedIn me = signupAndLogin();
+        // REQ-116 마지막 변경 날짜: 가입 때 정하고 바꾸면 갱신
+        String signedUpAt = JsonPath.read(perform(me, get("/api/users/me")).andReturn().getResponse().getContentAsString(),
+                "$.data.passwordChangedAt");
+        assertThat(signedUpAt).isNotBlank();
 
         perform(me, putJson("/api/users/me/password", "{\"currentPassword\":\"wrong1234\",\"newPassword\":\"changed123\"}"))
                 .andExpect(status().isBadRequest())
@@ -88,6 +92,10 @@ class ProfileFlowTest {
 
         perform(me, putJson("/api/users/me/password", "{\"currentPassword\":\"%s\",\"newPassword\":\"changed123\"}".formatted(PASSWORD)))
                 .andExpect(status().isOk());
+
+        String changedAt = JsonPath.read(perform(me, get("/api/users/me")).andReturn().getResponse().getContentAsString(),
+                "$.data.passwordChangedAt");
+        assertThat(changedAt).isGreaterThan(signedUpAt);
 
         mockMvc.perform(post("/api/auth/refresh").cookie(me.refresh)).andExpect(status().isUnauthorized());
         login(me.email, "changed123").andExpect(status().isOk());
@@ -128,11 +136,36 @@ class ProfileFlowTest {
     }
 
     @Test
+    void 기본_캐릭터를_고르면_화면의_정적_파일_주소를_주고_올린_사진은_지운다() throws Exception {
+        LoggedIn me = signupAndLogin();
+        String uploaded = upload(me, "image/png", new byte[] {1});
+        perform(me, putJson("/api/users/me/profile-image", "{\"imageKey\":\"%s\"}".formatted(uploaded))).andExpect(status().isOk());
+
+        perform(me, putJson("/api/users/me/profile-image", "{\"imageKey\":\"default/03\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profileImageUrl").value("/avatars/03.png"));
+        assertThat(profileImageStorage.size(uploaded)).isEmpty();
+        perform(me, get("/api/users/me")).andExpect(jsonPath("$.data.profileImageUrl").value("/avatars/03.png"));
+        mockMvc.perform(get("/internal/users").param("ids", String.valueOf(me.userId)))
+                .andExpect(jsonPath("$.data[0].profileImageUrl").value("/avatars/03.png"));
+
+        // 없는 번호는 남의 경로처럼 막는다
+        perform(me, putJson("/api/users/me/profile-image", "{\"imageKey\":\"default/10\"}"))
+                .andExpect(status().isForbidden());
+
+        perform(me, delete("/api/users/me/profile-image")).andExpect(status().isOk());
+        perform(me, get("/api/users/me")).andExpect(jsonPath("$.data.profileImageUrl").doesNotExist());
+    }
+
+    @Test
     void 프로필_사진_등록_조건을_검사한다() throws Exception {
         LoggedIn me = signupAndLogin();
         LoggedIn other = signupAndLogin();
 
         perform(me, postJson("/api/users/me/profile-image/upload-url", "{\"contentType\":\"image/gif\"}"))
+                .andExpect(jsonPath("$.code").value("UNSUPPORTED_IMAGE_TYPE"));
+        // 디자인 11: JPG, PNG만
+        perform(me, postJson("/api/users/me/profile-image/upload-url", "{\"contentType\":\"image/webp\"}"))
                 .andExpect(jsonPath("$.code").value("UNSUPPORTED_IMAGE_TYPE"));
 
         String notUploaded = JsonPath.read(perform(me, postJson("/api/users/me/profile-image/upload-url", "{\"contentType\":\"image/png\"}"))

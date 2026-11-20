@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,10 +29,13 @@ public class UserProfileService {
     static final long MAX_IMAGE_BYTES = 5L * 1024 * 1024;
     static final int MAX_LOOKUP_IDS = 100;
 
+    /** 디자인 11 프로필 사진: JPG, PNG만 (2026-11-20) */
     private static final Map<String, String> IMAGE_EXTENSIONS = Map.of(
             "image/jpeg", "jpg",
-            "image/png", "png",
-            "image/webp", "webp");
+            "image/png", "png");
+
+    /** REQ-115 기본 캐릭터 9개. 파일은 화면(nineouting-front public/avatars)에 있다 */
+    private static final Pattern DEFAULT_AVATAR_KEY = Pattern.compile("default/0[1-9]");
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -71,17 +75,21 @@ public class UserProfileService {
         return new ProfileImageUploadUrlResponse(profileImageStorage.uploadUrl(key, contentType), key);
     }
 
-    /** REQ-115 ② 업로드가 끝난 사진을 내 프로필로 등록하고, 이전 사진은 지운다. */
+    /**
+     * REQ-115 ② 업로드가 끝난 사진이나 기본 캐릭터(default/01~09)를 내 프로필로 등록하고, 이전에 올린 사진은 지운다.
+     */
     @Transactional
     public String registerProfileImage(Long userId, String imageKey) {
-        requireUploadedImage(userId, imageKey);
+        if (!isDefaultAvatar(imageKey)) {
+            requireUploadedImage(userId, imageKey);
+        }
         User user = find(userId);
         String previousKey = user.getProfileImageKey();
         user.changeProfileImage(imageKey);
-        if (previousKey != null && !previousKey.equals(imageKey)) {
-            profileImageStorage.deleteQuietly(previousKey);
+        if (!imageKey.equals(previousKey)) {
+            deleteUploaded(previousKey);
         }
-        return profileImageStorage.downloadUrl(imageKey);
+        return imageUrl(imageKey);
     }
 
     /** REQ-115 ③ */
@@ -89,7 +97,7 @@ public class UserProfileService {
     public void deleteProfileImage(Long userId) {
         User user = find(userId);
         if (user.getProfileImageKey() != null) {
-            profileImageStorage.deleteQuietly(user.getProfileImageKey());
+            deleteUploaded(user.getProfileImageKey());
             user.changeProfileImage(null);
         }
     }
@@ -101,9 +109,7 @@ public class UserProfileService {
     @Transactional
     public void withdraw(Long userId) {
         User user = find(userId);
-        if (user.getProfileImageKey() != null) {
-            profileImageStorage.deleteQuietly(user.getProfileImageKey());
-        }
+        deleteUploaded(user.getProfileImageKey());
         refreshTokenStore.revokeAll(userId);
         userRepository.deleteWorkspaceProfiles(userId);
         userRepository.delete(user);
@@ -119,7 +125,8 @@ public class UserProfileService {
             throw new BusinessException(CommonErrorCode.INVALID_INPUT, "한 번에 " + MAX_LOOKUP_IDS + "명까지 조회할 수 있습니다");
         }
         return userRepository.findAllById(ids).stream()
-                .map(user -> new UserSummaryResponse(user.getId(), user.getName(), user.getEmail(), imageUrl(user),
+                .map(user -> new UserSummaryResponse(user.getId(), user.getName(), user.getEmail(),
+                        imageUrl(user.getProfileImageKey()),
                         user.getAffiliation()))
                 .toList();
     }
@@ -143,11 +150,27 @@ public class UserProfileService {
 
     private MyProfileResponse toMyProfile(User user) {
         return new MyProfileResponse(user.getId(), user.getEmail(), user.getName(), user.getAffiliation(),
-                imageUrl(user));
+                imageUrl(user.getProfileImageKey()), user.getPasswordChangedAt());
     }
 
-    private String imageUrl(User user) {
-        return user.getProfileImageKey() == null ? null : profileImageStorage.downloadUrl(user.getProfileImageKey());
+    /** 기본 캐릭터는 화면의 정적 파일(/avatars/NN.png), 올린 사진은 저장소 주소 */
+    private String imageUrl(String key) {
+        if (key == null) {
+            return null;
+        }
+        return isDefaultAvatar(key) ? "/avatars/" + key.substring("default/".length()) + ".png"
+                : profileImageStorage.downloadUrl(key);
+    }
+
+    /** 올린 사진만 저장소에서 지운다 (기본 캐릭터는 파일이 화면에 있다) */
+    private void deleteUploaded(String key) {
+        if (key != null && !isDefaultAvatar(key)) {
+            profileImageStorage.deleteQuietly(key);
+        }
+    }
+
+    private static boolean isDefaultAvatar(String key) {
+        return DEFAULT_AVATAR_KEY.matcher(key).matches();
     }
 
     private static String keyPrefix(Long userId) {

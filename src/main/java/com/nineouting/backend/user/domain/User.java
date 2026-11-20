@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -35,10 +36,15 @@ public class User extends BaseTimeEntity {
     @Column(name = "profile_image_key")
     private String profileImageKey;
 
+    /** REQ-116 비밀번호 마지막 변경 시각 (가입 때 처음 정한다) */
+    @Column(name = "password_changed_at", nullable = false)
+    private LocalDateTime passwordChangedAt;
+
     private User(String email, String passwordHash, String name) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.name = name;
+        this.passwordChangedAt = LocalDateTime.now();
     }
 
     public static User create(String email, String passwordHash, String name) {
@@ -47,6 +53,7 @@ public class User extends BaseTimeEntity {
 
     public void changePassword(String passwordHash) {
         this.passwordHash = passwordHash;
+        this.passwordChangedAt = LocalDateTime.now();
     }
 
     /** null인 항목은 바꾸지 않는다. 소속을 빈 문자열로 보내면 지운다. */
