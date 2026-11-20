@@ -95,6 +95,21 @@ public class UserProfileService {
     }
 
     /**
+     * REQ-207 회원 탈퇴. 프로필 사진, 로그인 유지 토큰, 계정을 지운다 (되돌릴 수 없다).
+     * 워크스페이스에서 나가기와 회의록 삭제는 화면이 먼저 각 서비스에 요청한다 (소유한 것이 있으면 거기서 막힌다)
+     */
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = find(userId);
+        if (user.getProfileImageKey() != null) {
+            profileImageStorage.deleteQuietly(user.getProfileImageKey());
+        }
+        refreshTokenStore.revokeAll(userId);
+        userRepository.deleteWorkspaceProfiles(userId);
+        userRepository.delete(user);
+    }
+
+    /**
      * 다른 서비스용 (회의 참석자·멤버 이름 표시). 없는 ID는 결과에서 빠진다.
      * 프로필은 모든 워크스페이스에 공통이라 workspaceId는 받기만 하고 쓰지 않는다 (REQ-114, 2026-11-18 시트)
      */

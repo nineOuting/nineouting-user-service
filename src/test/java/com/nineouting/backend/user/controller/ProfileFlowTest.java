@@ -94,6 +94,19 @@ class ProfileFlowTest {
     }
 
     @Test
+    void 탈퇴하면_계정과_사진이_지워지고_다시_로그인할_수_없다() throws Exception {
+        LoggedIn me = signupAndLogin();
+        String key = upload(me, "image/png", new byte[] {1});
+        perform(me, putJson("/api/users/me/profile-image", "{\"imageKey\":\"%s\"}".formatted(key))).andExpect(status().isOk());
+
+        perform(me, delete("/api/users/me")).andExpect(status().isOk());
+
+        assertThat(profileImageStorage.size(key)).isEmpty();
+        mockMvc.perform(post("/api/auth/refresh").cookie(me.refresh)).andExpect(status().isUnauthorized());
+        login(me.email, PASSWORD).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void 프로필_사진을_올리고_바꾸고_지운다() throws Exception {
         LoggedIn me = signupAndLogin();
 

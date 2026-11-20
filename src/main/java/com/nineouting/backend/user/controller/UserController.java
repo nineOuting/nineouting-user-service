@@ -65,6 +65,13 @@ public class UserController {
                 userProfileService.registerProfileImage(user.userId(), request.imageKey())));
     }
 
+    /** REQ-207 회원 탈퇴 */
+    @DeleteMapping
+    public ApiResponse<Void> withdraw(@CurrentUser AuthenticatedUser user) {
+        userProfileService.withdraw(user.userId());
+        return ApiResponse.ok();
+    }
+
     /** REQ-115 ③ */
     @DeleteMapping("/profile-image")
     public ApiResponse<Void> deleteProfileImage(@CurrentUser AuthenticatedUser user) {
