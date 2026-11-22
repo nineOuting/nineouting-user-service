@@ -36,7 +36,7 @@ public class User extends BaseTimeEntity {
     @Column(name = "profile_image_key")
     private String profileImageKey;
 
-    /** REQ-116 비밀번호 마지막 변경 시각 (가입 때 처음 정한다) */
+    /** 비밀번호를 마지막으로 정한 때 (가입, 변경, 재설정) */
     @Column(name = "password_changed_at", nullable = false)
     private LocalDateTime passwordChangedAt;
 

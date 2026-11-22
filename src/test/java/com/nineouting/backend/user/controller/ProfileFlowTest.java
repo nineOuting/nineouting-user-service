@@ -1,6 +1,7 @@
 package com.nineouting.backend.user.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -99,6 +100,8 @@ class ProfileFlowTest {
 
         mockMvc.perform(post("/api/auth/refresh").cookie(me.refresh)).andExpect(status().isUnauthorized());
         login(me.email, "changed123").andExpect(status().isOk());
+        // 설정 › 프로필 "마지막 변경" 날짜가 바뀐다
+        perform(me, get("/api/users/me")).andExpect(jsonPath("$.data.passwordChangedAt").value(not(signedUpAt)));
     }
 
     @Test
