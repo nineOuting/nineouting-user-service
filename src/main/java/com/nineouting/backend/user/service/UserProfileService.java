@@ -143,7 +143,7 @@ public class UserProfileService {
 
     private MyProfileResponse toMyProfile(User user) {
         return new MyProfileResponse(user.getId(), user.getEmail(), user.getName(), user.getAffiliation(),
-                imageUrl(user));
+                imageUrl(user), user.getPasswordChangedAt());
     }
 
     private String imageUrl(User user) {
