@@ -1,6 +1,7 @@
 package com.nineouting.backend.user.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -81,6 +82,8 @@ class ProfileFlowTest {
     @Test
     void 비밀번호를_바꾸면_새_비밀번호로_로그인되고_기존_로그인은_끊긴다() throws Exception {
         LoggedIn me = signupAndLogin();
+        String signedUpAt = JsonPath.read(perform(me, get("/api/users/me")).andReturn().getResponse().getContentAsString(),
+                "$.data.passwordChangedAt");
 
         perform(me, putJson("/api/users/me/password", "{\"currentPassword\":\"wrong1234\",\"newPassword\":\"changed123\"}"))
                 .andExpect(status().isBadRequest())
@@ -91,6 +94,8 @@ class ProfileFlowTest {
 
         mockMvc.perform(post("/api/auth/refresh").cookie(me.refresh)).andExpect(status().isUnauthorized());
         login(me.email, "changed123").andExpect(status().isOk());
+        // 설정 › 프로필 "마지막 변경" 날짜가 바뀐다
+        perform(me, get("/api/users/me")).andExpect(jsonPath("$.data.passwordChangedAt").value(not(signedUpAt)));
     }
 
     @Test
