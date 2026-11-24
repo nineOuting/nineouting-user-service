@@ -19,9 +19,6 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          # DEV push can save dependencies; PRs remain read-only.
-          cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/dev' }}
       - name: Build
         run: ./gradlew build jacocoTestReport --no-daemon --console=plain
         env:
