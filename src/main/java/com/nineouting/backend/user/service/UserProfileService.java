@@ -13,9 +13,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -41,6 +43,7 @@ public class UserProfileService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenStore refreshTokenStore;
     private final ProfileImageStorage profileImageStorage;
+    private final UserSummaryCache userSummaryCache;
 
     @Transactional(readOnly = true)
     public MyProfileResponse getMyProfile(Long userId) {
@@ -51,6 +54,7 @@ public class UserProfileService {
     public MyProfileResponse updateProfile(Long userId, String name, String affiliation) {
         User user = find(userId);
         user.updateProfile(name, affiliation);
+        userSummaryCache.evictAfterCommit(userId);
         return toMyProfile(user);
     }
 
@@ -86,6 +90,7 @@ public class UserProfileService {
         User user = find(userId);
         String previousKey = user.getProfileImageKey();
         user.changeProfileImage(imageKey);
+        userSummaryCache.evictAfterCommit(userId);
         if (!imageKey.equals(previousKey)) {
             deleteUploaded(previousKey);
         }
@@ -99,6 +104,7 @@ public class UserProfileService {
         if (user.getProfileImageKey() != null) {
             deleteUploaded(user.getProfileImageKey());
             user.changeProfileImage(null);
+            userSummaryCache.evictAfterCommit(userId);
         }
     }
 
@@ -113,22 +119,29 @@ public class UserProfileService {
         refreshTokenStore.revokeAll(userId);
         userRepository.deleteWorkspaceProfiles(userId);
         userRepository.delete(user);
+        userSummaryCache.evictAfterCommit(userId);
     }
 
     /**
      * 다른 서비스용 (회의 참석자·멤버 이름 표시). 없는 ID는 결과에서 빠진다.
      * 프로필은 모든 워크스페이스에 공통이라 workspaceId는 받기만 하고 쓰지 않는다 (REQ-114, 2026-11-18 시트)
      */
-    @Transactional(readOnly = true)
+    // 캐시에 없는 사람만 DB에서 읽는다 (2026-11-25 부하 시험 후속). Redis를 보는 동안 DB 연결을 잡지 않는다
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<UserSummaryResponse> findSummaries(Collection<Long> ids, Long workspaceId) {
         if (ids.size() > MAX_LOOKUP_IDS) {
             throw new BusinessException(CommonErrorCode.INVALID_INPUT, "한 번에 " + MAX_LOOKUP_IDS + "명까지 조회할 수 있습니다");
         }
-        return userRepository.findAllById(ids).stream()
+        List<Long> distinct = ids.stream().distinct().toList();
+        Map<Long, UserSummaryResponse> cached = userSummaryCache.get(distinct);
+        List<Long> missing = distinct.stream().filter(id -> !cached.containsKey(id)).toList();
+        List<UserSummaryResponse> loaded = missing.isEmpty() ? List.of() : userRepository.findAllById(missing).stream()
                 .map(user -> new UserSummaryResponse(user.getId(), user.getName(), user.getEmail(),
                         imageUrl(user.getProfileImageKey()),
                         user.getAffiliation()))
                 .toList();
+        userSummaryCache.put(loaded);
+        return Stream.concat(cached.values().stream(), loaded.stream()).toList();
     }
 
     /** 내 업로드 경로의 사진이고, 실제로 올라가 있고, 크기 제한 안인지 */

@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -51,6 +52,9 @@ class ProfileFlowTest {
 
     @Autowired
     ProfileImageStorage profileImageStorage;
+
+    @Autowired
+    StringRedisTemplate redis;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
@@ -201,6 +205,32 @@ class ProfileFlowTest {
         mockMvc.perform(get("/internal/users").param("ids", tooMany))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+    }
+
+    @Test
+    void 다른_서비스용_조회는_캐시하고_프로필이_바뀌면_새_값을_준다() throws Exception {
+        LoggedIn me = signupAndLogin();
+        mockMvc.perform(get("/internal/users").param("ids", String.valueOf(me.userId)))
+                .andExpect(jsonPath("$.data[0].name").value("테스터"));
+        assertThat(redis.hasKey("user-summary:" + me.userId)).isTrue();
+
+        // 캐시에서 읽어도 같은 모양
+        mockMvc.perform(get("/internal/users").param("ids", String.valueOf(me.userId)))
+                .andExpect(jsonPath("$.data[0].name").value("테스터"))
+                .andExpect(jsonPath("$.data[0].email").value(me.email));
+
+        perform(me, patchJson("/api/users/me", "{\"name\":\"새이름\"}")).andExpect(status().isOk());
+        assertThat(redis.hasKey("user-summary:" + me.userId)).isFalse();
+        mockMvc.perform(get("/internal/users").param("ids", String.valueOf(me.userId)))
+                .andExpect(jsonPath("$.data[0].name").value("새이름"));
+
+        perform(me, putJson("/api/users/me/profile-image", "{\"imageKey\":\"default/05\"}")).andExpect(status().isOk());
+        mockMvc.perform(get("/internal/users").param("ids", String.valueOf(me.userId)))
+                .andExpect(jsonPath("$.data[0].profileImageUrl").value("/avatars/05.png"));
+
+        perform(me, delete("/api/users/me")).andExpect(status().isOk());
+        mockMvc.perform(get("/internal/users").param("ids", String.valueOf(me.userId)))
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     @Test
