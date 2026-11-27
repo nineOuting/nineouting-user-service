@@ -121,6 +121,24 @@ class AuthFlowTest {
     }
 
     @Test
+    void 관리자는_이메일_인증_없이_계정을_만들고_그_계정으로_로그인된다() throws Exception {
+        String email = newEmail();
+
+        postJson("/internal/admin/users", signupBody(email, PASSWORD))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.userId").isNumber());
+
+        postJson("/api/auth/login", "{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, PASSWORD))
+                .andExpect(status().isOk());
+        // 같은 이메일, 규칙에 맞지 않는 비밀번호는 가입과 똑같이 막는다
+        postJson("/internal/admin/users", signupBody(email, PASSWORD))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("EMAIL_ALREADY_EXISTS"));
+        postJson("/internal/admin/users", signupBody(newEmail(), "short"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void 이메일_인증_없이는_가입할_수_없다() throws Exception {
         postJson("/api/auth/signup", signupBody(newEmail(), PASSWORD))
                 .andExpect(status().isBadRequest())
