@@ -43,6 +43,22 @@ public class AuthService {
             throw new BusinessException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
         emailVerificationService.consumeVerified(email);
+        return create(email, password, name);
+    }
+
+    /**
+     * REQ-218 관리자 빠른 작업: 이메일 인증 없이 시험 계정을 만든다 (/internal/admin, 관리자 서비스만 부른다).
+     * 비밀번호 해시, 이메일 중복 확인은 가입과 같다
+     */
+    @Transactional
+    public Long createByAdmin(String email, String password, String name) {
+        if (userRepository.existsByEmail(email)) {
+            throw new BusinessException(UserErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+        return create(email, password, name);
+    }
+
+    private Long create(String email, String password, String name) {
         try {
             return userRepository.saveAndFlush(User.create(email, passwordEncoder.encode(password), name)).getId();
         } catch (DataIntegrityViolationException e) {
